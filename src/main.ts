@@ -147,6 +147,8 @@ export default class TerminalPlugin extends Plugin {
     this.registerObsidianProtocolHandler("lean-terminal", (params) => {
       if (params.resume) {
         void resumeClaudeSession(this, params.resume);
+      } else if (params.cwd) {
+        void this.openTerminalAt(decodeURIComponent(params.cwd));
       }
     });
 
