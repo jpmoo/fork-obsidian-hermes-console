@@ -1,6 +1,8 @@
 # Lean Terminal
 
 [![GitHub stars](https://img.shields.io/github/stars/sdkasper/lean-obsidian-terminal?logo=obsidian&logoColor=A991D4&style=flat-square&labelColor=000000&color=000000)](https://github.com/sdkasper/lean-obsidian-terminal/stargazers)
+[![Obsidian](https://img.shields.io/badge/Obsidian-v1.5.0+-A991D4?style=flat-square&labelColor=000000)](https://obsidian.md)
+[![License](https://img.shields.io/badge/License-MIT-007BFF?style=flat-square&labelColor=000000)](LICENSE)
 [![Open issues](https://img.shields.io/github/issues/sdkasper/lean-obsidian-terminal?logo=obsidian&logoColor=A991D4&style=flat-square&labelColor=000000&color=FC3634&label=issues+open)](https://github.com/sdkasper/lean-obsidian-terminal/issues)
 [![Closed issues](https://img.shields.io/github/issues-closed/sdkasper/lean-obsidian-terminal?logo=obsidian&logoColor=A991D4&style=flat-square&labelColor=000000&color=18BC9C&label=issues+closed)](https://github.com/sdkasper/lean-obsidian-terminal/issues?q=is%3Aissue+is%3Aclosed)
 [![Manifest version](https://img.shields.io/github/manifest-json/v/sdkasper/lean-obsidian-terminal?logo=obsidian&logoColor=A991D4&style=flat-square&labelColor=000000&color=000000&label=manifest)](https://github.com/sdkasper/lean-obsidian-terminal/blob/master/manifest.json)
