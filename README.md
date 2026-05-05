@@ -203,6 +203,8 @@ Use this repo to report bugs, request features, or ask questions.
 - [Report a Performance Issue](https://github.com/sdkasper/lean-obsidian-terminal/issues/new?assignees=&labels=performance&template=performance_issue.md)
 - [Ask a Question / Share Feedback](https://github.com/sdkasper/lean-obsidian-terminal/discussions)
 
+If you want to support my work, you can use this link to [buy me a drink](https://kspr.me/cheers) - thank you, I appreciate you.
+
 ## Development
 
 ```bash
