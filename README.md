@@ -120,6 +120,7 @@ An embedded terminal panel for [Obsidian](https://obsidian.md), powered by [xter
 | Search shortcut | Ctrl+Alt+F | Keyboard shortcut to open the in-terminal search bar |
 | Wiki-link autocomplete | Off | Type `[[` in the terminal to open a searchable vault note picker |
 | Wiki-link insertion format | Wiki-link | How an accepted note is inserted: `[[Note]]`, vault-relative path, or absolute path |
+| Line height | 1.0 | Terminal line height multiplier (1.0-2.0). Changes apply instantly to open tabs |
 | Tab bar position | Top | Position of the tab bar: Top (horizontal, default), Left, or Right (vertical stacking) |
 
 ## How It Works
