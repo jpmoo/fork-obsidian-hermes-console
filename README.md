@@ -75,34 +75,19 @@ An embedded terminal panel for [Obsidian](https://obsidian.md), powered by [xter
 3. Run `node install.mjs "/path/to/your/vault"`
 4. Restart Obsidian and enable the plugin in **Settings > Community Plugins**
 
-## Usage
-
-See [Usage](docs/usage.md) for the full command reference.
-
-## Settings
-
-See [Settings](docs/settings.md) for all configuration options.
-
 ## How It Works
 
 The plugin uses xterm.js for terminal rendering and node-pty for native pseudo-terminal support. node-pty spawns a real shell process (PowerShell, bash, etc.) and connects its stdin/stdout to xterm.js via Obsidian's Electron runtime. This gives you a fully interactive terminal - not just command execution.
 
 On Windows, the plugin uses the ConPTY backend (correct UTF-8 and emoji support). A patched `windowsConoutConnection.js` replaces node-pty's Worker thread with inline socket piping so ConPTY works inside Obsidian's Electron renderer, which does not support Worker thread construction.
 
-## Session Persistence
+## Related documents
 
+See [Usage](docs/usage.md) for the full command reference.
+See [Settings](docs/settings.md) for all configuration options.
 See [Session Persistence](docs/session-persistence.md) for how tab state is saved and restored.
-
-## Claude Code Integration
-
 See [Claude Code Integration](docs/claude-code-integration.md) for setup and usage.
-
-## URI Handler
-
 See [URI Handler](docs/uri-handler.md) for the `obsidian://lean-terminal` protocol reference.
-
-## Security
-
 See [Security](docs/security.md) for the security review summary.
 
 ## Feedback
