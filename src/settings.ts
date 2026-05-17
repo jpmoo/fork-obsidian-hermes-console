@@ -7,6 +7,7 @@ import {
   MAX_TINT_STRENGTH,
   type TabColorDef,
 } from "./tab-colors";
+import { HERMES_ICON_ID } from "./hermes-icon";
 
 export type NotificationSound = "beep" | "chime" | "ping" | "pop";
 
@@ -39,10 +40,9 @@ export interface TerminalPluginSettings {
   persistBuffer: boolean;
   recentSessionsMax: number;
   recentSessions: RecentSession[];
-  // Claude Code integration — all gated on enableClaudeIntegration
+  sendObsidianContextToHermes: boolean;
+  // Hermes session integration — legacy setting names kept for data compatibility.
   enableClaudeIntegration: boolean;
-  claudeSessionsDir: string;
-  claudeRegistryPath: string;
   claudeSessionsMax: number;
   tabColorTintsBackground: boolean;
   tabColors: TabColorDef[];
@@ -55,7 +55,7 @@ export interface TerminalPluginSettings {
 
 export const DEFAULT_SETTINGS: TerminalPluginSettings = {
   shellPath: "",
-  startupCommand: "",
+  startupCommand: "hermes",
   fontSize: 14,
   fontFamily: "Menlo, Monaco, 'Courier New', monospace",
   lineHeight: 1.0,
@@ -63,8 +63,8 @@ export const DEFAULT_SETTINGS: TerminalPluginSettings = {
   backgroundColor: "",
   cursorBlink: true,
   copyOnSelect: false,
-  scrollback: 5000,
-  ribbonIcon: "terminal",
+  scrollback: 500000,
+  ribbonIcon: HERMES_ICON_ID,
   defaultLocation: "bottom",
   notifyOnCompletion: false,
   notificationSound: "beep",
@@ -73,9 +73,8 @@ export const DEFAULT_SETTINGS: TerminalPluginSettings = {
   persistBuffer: true,
   recentSessionsMax: 10,
   recentSessions: [],
-  enableClaudeIntegration: false,
-  claudeSessionsDir: "",
-  claudeRegistryPath: "claude-sessions.md",
+  sendObsidianContextToHermes: false,
+  enableClaudeIntegration: true,
   claudeSessionsMax: 25,
   tabColorTintsBackground: true,
   tabColors: DEFAULT_TAB_COLORS.map((c) => ({ ...c })),
@@ -249,10 +248,10 @@ export class TerminalSettingTab extends PluginSettingTab {
   }
 
   private renderBinarySection(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Terminal binary").setHeading();
+    new Setting(containerEl).setName("Hermes Console binary").setHeading();
 
     new Setting(containerEl)
-      .setName(`Lean Obsidian Terminal v${this.plugin.manifest.version}`);
+      .setName(`Hermes Console v${this.plugin.manifest.version}`);
 
     const bm = this.plugin.binaryManager;
     const { platform, arch } = bm.getPlatformInfo();
@@ -284,7 +283,7 @@ export class TerminalSettingTab extends PluginSettingTab {
             btn.setDisabled(true);
             try {
               await bm.download();
-              new Notice("Terminal binaries installed successfully.");
+              new Notice("Console binaries installed successfully.");
             } catch (err: unknown) {
               const msg = err instanceof Error ? err.message : String(err);
               new Notice(`Failed to download binaries: ${msg}`);
@@ -302,7 +301,7 @@ export class TerminalSettingTab extends PluginSettingTab {
           .setDisabled(status !== "ready")
           .onClick(() => {
             bm.remove();
-            new Notice("Terminal binaries removed.");
+            new Notice("Console binaries removed.");
             this.display();
           });
       });
@@ -326,10 +325,10 @@ export class TerminalSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Startup command")
-      .setDesc("Run this command automatically when a new terminal tab opens (e.g. claude, npm run dev)")
+      .setDesc("Fresh new tabs run this after the shell is ready. Restored tabs and resume links do not re-run it. Defaults to Hermes.")
       .addText((text) =>
         text
-          .setPlaceholder("none")
+          .setPlaceholder("hermes")
           .setValue(this.plugin.settings.startupCommand)
           .onChange(async (value) => {
             this.plugin.settings.startupCommand = value;
@@ -360,6 +359,17 @@ export class TerminalSettingTab extends PluginSettingTab {
           this.plugin.settings.copyOnSelect = value;
           await this.plugin.saveSettings();
           this.plugin.updateCopyOnSelect();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName("Send Obsidian context to Hermes")
+      .setDesc("When enabled, plain Enter in a terminal writes the current Markdown selection or cursor context to the local Hermes bridge before the prompt submits.")
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.sendObsidianContextToHermes).onChange(async (value) => {
+          this.plugin.settings.sendObsidianContextToHermes = value;
+          await this.plugin.saveSettings();
+          this.plugin.updateObsidianContextHeaders();
         })
       );
 
@@ -467,7 +477,7 @@ export class TerminalSettingTab extends PluginSettingTab {
 
     const iconSetting = new Setting(containerEl)
       .setName("Icon")
-      .setDesc("Lucide icon name for the ribbon and tab (e.g. \"terminal\", \"code-2\", \"zap\"). Browse icons at lucide.dev.");
+      .setDesc(`Icon name for the ribbon and tab. Default is the custom Hermes caduceus/wing mark (${HERMES_ICON_ID}); Lucide names still work.`);
 
     let previewEl: HTMLElement | null = null;
 
@@ -616,7 +626,7 @@ export class TerminalSettingTab extends PluginSettingTab {
           const count = this.plugin.themeRegistry.getNames().length;
           const errors = this.plugin.themeRegistry.getUserLoadErrors();
           if (errors.length === 0) {
-            new Notice(`Lean Terminal: Themes reloaded (${count} total).`);
+            new Notice(`Hermes Console: Themes reloaded (${count} total).`);
           }
           // If there were errors, the registry's load() already showed its own Notice.
         });
@@ -716,34 +726,15 @@ export class TerminalSettingTab extends PluginSettingTab {
         })
       );
 
-    new Setting(containerEl)
-      .setName("Recent sessions to keep")
-      .setDesc(
-        "When a tab is closed, its state is kept for rescue via \"restore recent terminal session\". Set to 0 to disable."
-      )
-      .addText((text) =>
-        text
-          .setValue(String(this.plugin.settings.recentSessionsMax))
-          .onChange(async (value) => {
-            const num = parseInt(value, 10);
-            if (!isNaN(num) && num >= 0) {
-              this.plugin.settings.recentSessionsMax = num;
-              if (this.plugin.settings.recentSessions.length > num) {
-                this.plugin.settings.recentSessions.splice(num);
-              }
-              await this.plugin.saveSettings();
-            }
-          })
-      );
   }
 
-  private renderClaudeSection(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Claude Code integration").setHeading();
+  private renderHermesSessionsSection(containerEl: HTMLElement): void {
+    new Setting(containerEl).setName("Hermes session integration").setHeading();
 
     new Setting(containerEl)
-      .setName("Enable Claude Code integration")
+      .setName("Enable Hermes session integration")
       .setDesc(
-        "Detect Claude sessions, register a uri handler for in-app resume links, and show Claude sessions in the restore picker."
+        "Show live Hermes CLI sessions when you run Obsidian's command palette action \"Restore console or Hermes session\". Pick a Hermes session there to open a fresh terminal that runs hermes --resume. No terminal scrollback is replayed and no session note is generated."
       )
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.enableClaudeIntegration).onChange(async (value) => {
@@ -755,39 +746,9 @@ export class TerminalSettingTab extends PluginSettingTab {
 
     if (this.plugin.settings.enableClaudeIntegration) {
       new Setting(containerEl)
-        .setName("Claude sessions directory")
+        .setName("Hermes sessions to show")
         .setDesc(
-          "Path to your Claude Code sessions folder. Example: /Users/yourname/.claude/projects (macOS/Linux) or C:\\Users\\yourname\\.claude\\projects (Windows). Leave empty to disable session history."
-        )
-        .addText((text) =>
-          text
-            .setPlaceholder("~/.claude/projects")
-            .setValue(this.plugin.settings.claudeSessionsDir)
-            .onChange(async (value) => {
-              this.plugin.settings.claudeSessionsDir = value.trim();
-              await this.plugin.saveSettings();
-            })
-        );
-
-      new Setting(containerEl)
-        .setName("Registry note path")
-        .setDesc(
-          "Vault-relative path to the auto-generated Claude sessions registry note. Created on first refresh."
-        )
-        .addText((text) =>
-          text
-            .setPlaceholder("claude-sessions.md")
-            .setValue(this.plugin.settings.claudeRegistryPath)
-            .onChange(async (value) => {
-              this.plugin.settings.claudeRegistryPath = value.trim() || "claude-sessions.md";
-              await this.plugin.saveSettings();
-            })
-        );
-
-      new Setting(containerEl)
-        .setName("Registry sessions to keep")
-        .setDesc(
-          "Maximum number of most-recent Claude sessions to list in the registry note and picker. Older sessions remain accessible via /resume."
+          "Maximum number of recent Hermes CLI sessions to include when the user opens the Obsidian command palette and runs \"Restore console or Hermes session\". Sessions are read live from hermes sessions list; they are not shown directly in settings."
         )
         .addText((text) =>
           text
@@ -812,6 +773,6 @@ export class TerminalSettingTab extends PluginSettingTab {
     this.renderTabBarSection(containerEl);
     this.renderNotificationsSection(containerEl);
     this.renderPersistenceSection(containerEl);
-    this.renderClaudeSection(containerEl);
+    this.renderHermesSessionsSection(containerEl);
   }
 }

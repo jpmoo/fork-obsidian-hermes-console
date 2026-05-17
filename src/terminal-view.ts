@@ -1,9 +1,19 @@
-import { FileSystemAdapter, ItemView, WorkspaceLeaf, type ViewStateResult } from "obsidian";
+import { FileSystemAdapter, ItemView, Notice, WorkspaceLeaf, setIcon, type ViewStateResult } from "obsidian";
 import { VIEW_TYPE_TERMINAL } from "./constants";
 import { TerminalTabManager, type TabManagerOptions, type CreateTabOpts } from "./terminal-tab-manager";
 import { pushRecentSession } from "./recent-sessions";
 import type TerminalPlugin from "./main";
 import type { SavedViewState } from "./session-state";
+import { HERMES_MARK_ICON_ID, HERMES_SETTINGS_ICON_ID } from "./hermes-icon";
+import {
+  getTerminalViewCloseBlockedMessage,
+  shouldBlockTerminalViewClose,
+} from "./terminal-session-actions";
+
+function formatCwdHint(cwd: string): string {
+  const parts = cwd.split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] ?? cwd;
+}
 
 export class TerminalView extends ItemView {
   private plugin: TerminalPlugin;
@@ -11,11 +21,13 @@ export class TerminalView extends ItemView {
   private resizeObserver: ResizeObserver | null = null;
   private resizeTimer: number | null = null;
   private viewContainer: HTMLElement | null = null;
+  private originalLeafDetach: WorkspaceLeaf["detach"] | null = null;
+  private workspaceCloseAuthorized = false;
   /**
    * State passed to setState() before onOpen() has constructed the tab manager.
    * Applied in onOpen() once the manager is ready.
    */
-  private pendingState: SavedViewState | null = null;
+  private pendingState: ParsedTerminalViewState | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: TerminalPlugin) {
     super(leaf);
@@ -27,7 +39,7 @@ export class TerminalView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Terminal";
+    return "Hermes Console";
   }
 
   getIcon(): string {
@@ -36,17 +48,13 @@ export class TerminalView extends ItemView {
 
   // async: satisfies ItemView.onOpen() → Promise<void>; no actual async work here
   async onOpen(): Promise<void> {
+    this.installWorkspaceCloseGuard();
+
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
     container.addClass("terminal-view-container");
     this.viewContainer = container;
     this.applyTabBarPosition();
-
-    // Tab bar
-    const tabBarEl = container.createDiv({ cls: "terminal-tab-bar" });
-
-    // Terminal host (all session containers go here)
-    const terminalHostEl = container.createDiv({ cls: "terminal-host" });
 
     // Determine CWD — vault root
     let cwd: string;
@@ -55,6 +63,40 @@ export class TerminalView extends ItemView {
     } catch {
       cwd = process.cwd();
     }
+
+    const shellEl = container.createDiv({ cls: "terminal-shell" });
+    const shellHeaderEl = shellEl.createDiv({ cls: "terminal-shell-header" });
+
+    const brandEl = shellHeaderEl.createDiv({ cls: "terminal-shell-brand" });
+    const brandIconEl = brandEl.createSpan({ cls: "terminal-shell-brand-icon" });
+    setIcon(brandIconEl, HERMES_MARK_ICON_ID);
+    brandEl.createSpan({ cls: "terminal-shell-wordmark", text: "HERMES" });
+
+    shellHeaderEl.createDiv({ cls: "terminal-shell-divider" });
+
+    const contextHeaderEl = shellHeaderEl.createDiv({ cls: "terminal-context-header" });
+
+    const cwdHintEl = shellHeaderEl.createDiv({
+      cls: "terminal-shell-cwd",
+      text: `cwd ${formatCwdHint(cwd)}`,
+    });
+    cwdHintEl.title = cwd;
+
+    const settingsButton = shellHeaderEl.createEl("button", {
+      cls: "terminal-shell-settings-button",
+    });
+    settingsButton.type = "button";
+    settingsButton.title = "Open Hermes Console settings";
+    settingsButton.setAttribute("aria-label", "Open Hermes Console settings");
+    setIcon(settingsButton, HERMES_SETTINGS_ICON_ID);
+    settingsButton.addEventListener("click", () => this.openSettingsTab());
+
+    const shellBodyEl = shellEl.createDiv({ cls: "terminal-shell-body" });
+    const tabBarEl = shellBodyEl.createDiv({ cls: "terminal-tab-bar" });
+    const mainAreaEl = shellBodyEl.createDiv({ cls: "terminal-main-area" });
+
+    // Terminal host (all session containers go here)
+    const terminalHostEl = mainAreaEl.createDiv({ cls: "terminal-host" });
 
     // Resolve plugin directory for native module loading
     const path = window.require("path") as typeof import("path");
@@ -67,6 +109,7 @@ export class TerminalView extends ItemView {
     const tabManagerOpts: TabManagerOptions = {
       app: this.app,
       tabBarEl,
+      contextHeaderEl,
       terminalHostEl,
       settings: this.plugin.settings,
       cwd,
@@ -76,6 +119,8 @@ export class TerminalView extends ItemView {
       onTabsEmpty: () => this.leaf.detach(),
       requestSaveLayout: () => { void this.app.workspace.requestSaveLayout(); },
       onSessionClose: (tab) => { void pushRecentSession(this.plugin, tab); },
+      contextTracker: this.plugin.obsidianContextTracker,
+      saveSettings: () => this.plugin.saveSettings(),
     };
     this.tabManager = new TerminalTabManager(tabManagerOpts);
 
@@ -110,12 +155,54 @@ export class TerminalView extends ItemView {
     );
   }
 
+  private openSettingsTab(): void {
+    const setting = (this.app as typeof this.app & {
+      setting?: {
+        open?: () => void;
+        openTabById?: (id: string) => void;
+      };
+    }).setting;
+
+    try {
+      setting?.open?.();
+      setting?.openTabById?.(this.plugin.manifest.id);
+    } catch (err) {
+      console.error("Hermes Console: failed to open settings", err);
+    }
+  }
+
   // async: satisfies ItemView.onClose() → Promise<void>; no actual async work here
   async onClose(): Promise<void> {
     if (this.resizeTimer) window.clearTimeout(this.resizeTimer);
     this.resizeObserver?.disconnect();
+    this.restoreWorkspaceCloseGuard();
     this.tabManager?.destroyAll();
     this.tabManager = null;
+  }
+
+  allowNextWorkspaceClose(): void {
+    this.workspaceCloseAuthorized = true;
+  }
+
+  private installWorkspaceCloseGuard(): void {
+    if (this.originalLeafDetach) return;
+
+    const original = this.leaf.detach.bind(this.leaf) as WorkspaceLeaf["detach"];
+    this.originalLeafDetach = original;
+    this.leaf.detach = ((...args: Parameters<WorkspaceLeaf["detach"]>) => {
+      const sessionCount = this.tabManager?.getSessions().length ?? 0;
+      if (shouldBlockTerminalViewClose(sessionCount, this.workspaceCloseAuthorized)) {
+        new Notice(getTerminalViewCloseBlockedMessage());
+        return Promise.resolve();
+      }
+      return original(...args);
+    }) as WorkspaceLeaf["detach"];
+  }
+
+  private restoreWorkspaceCloseGuard(): void {
+    if (!this.originalLeafDetach) return;
+    this.leaf.detach = this.originalLeafDetach;
+    this.originalLeafDetach = null;
   }
 
   createNewTab(opts?: CreateTabOpts): void {
@@ -136,6 +223,10 @@ export class TerminalView extends ItemView {
 
   updateLineHeight(): void {
     this.tabManager?.updateLineHeight();
+  }
+
+  updateObsidianContextHeader(): void {
+    this.tabManager?.updateObsidianContextHeader();
   }
 
   applyTabBarPosition(): void {
@@ -192,6 +283,7 @@ export class TerminalView extends ItemView {
         bufferSerial: tab.bufferSerial,
         resumeCommand: tab.resumeCommand,
         pinned: tab.pinned,
+        restored: !state.runStartupCommand,
       });
     }
 
@@ -205,10 +297,18 @@ export class TerminalView extends ItemView {
  * Validate and narrow an unknown state value to SavedViewState.
  * Returns null for missing, malformed, or empty state.
  */
-function parseSavedViewState(state: unknown): SavedViewState | null {
+interface ParsedTerminalViewState extends SavedViewState {
+  /**
+   * Transient view-state hint used by explicit "open here" launches. Workspace
+   * restore state does not include it, so restored tabs remain startup-safe.
+   */
+  runStartupCommand?: boolean;
+}
+
+function parseSavedViewState(state: unknown): ParsedTerminalViewState | null {
   if (!state || typeof state !== "object") return null;
-  const s = state as Partial<SavedViewState>;
+  const s = state as Partial<ParsedTerminalViewState>;
   if (!Array.isArray(s.tabs) || s.tabs.length === 0) return null;
   const activeIndex = typeof s.activeIndex === "number" ? s.activeIndex : 0;
-  return { tabs: s.tabs, activeIndex };
+  return { tabs: s.tabs, activeIndex, runStartupCommand: s.runStartupCommand === true };
 }

@@ -13,6 +13,7 @@ Hermes Console brings the [Hermes Agent](https://github.com/NousResearch/hermes-
 
 Use it when you want to think, write, research, and run Hermes from the same Obsidian workspace instead of bouncing between your notes and an external terminal window.
 
+Hermes Console is built on a fork of Lean Terminal. We preserve upstream credit and license history, but this README now describes the Hermes Console product, roadmap, and Obsidian-to-Hermes workflow.
 
 ## Architecture: one Obsidian plugin, one Hermes companion, one bridge file
 

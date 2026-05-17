@@ -2,7 +2,7 @@
 
 import fs from 'fs';
 
-const REPO = 'sdkasper/lean-obsidian-terminal';
+const REPO = 'dannyshmueli/obsidian-hermes-console';
 const API_URL = `https://api.github.com/repos/${REPO}/releases`;
 const TOKEN = process.env.GITHUB_TOKEN;
 
@@ -17,7 +17,7 @@ async function fetchReleases() {
   const options = {
     headers: {
       'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'lean-obsidian-terminal-changelog-generator',
+      'User-Agent': 'obsidian-hermes-console-changelog-generator',
     },
   };
 
@@ -102,7 +102,7 @@ function formatDate(isoString) {
  */
 function buildChangelog(releases) {
   let content = '# Changelog\n\n';
-  content += 'All notable changes to Lean Obsidian Terminal are documented here.\n\n';
+  content += 'All notable changes to Hermes Console are documented here.\n\n';
 
   for (const release of releases) {
     const version = release.tag_name;
