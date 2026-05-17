@@ -48,6 +48,7 @@ Hermes Console is built on a fork of Lean Terminal. We preserve upstream credit 
 6. Open **Settings > Hermes Console > Download binaries** and click **Download**.
 7. Open Hermes Console from the ribbon icon or command palette.
 8. Highlight text in any note, type a prompt in Hermes Console, and press Enter.
+<img width="416" height="291" alt="image" src="https://github.com/user-attachments/assets/eeb38e1d-0f1a-4200-b38a-9eaf065e463b" />
 
 Hermes Console does not install Hermes itself. BRAT also does not install Hermes plugins. If `hermes` is already available in your shell and `obsidian-context-bridge` is enabled, new console tabs start Hermes automatically and selected-note context is attached on submit.
 
