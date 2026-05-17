@@ -3,7 +3,7 @@
   "name": "Hermes Console",
   "version": "1.1.1",
   "minAppVersion": "1.7.2",
-  "description": "Hermes Console: Hermes-first embedded console powered by xterm.js and node-pty.",
+  "description": "Run Hermes Agent inside Obsidian with an embedded console, native PTY tabs, and selected-note context.",
   "author": "LeanProductivity; Hermes Console fork by Nous",
   "isDesktopOnly": true
 }
