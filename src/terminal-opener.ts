@@ -1,8 +1,26 @@
+import type { Workspace, WorkspaceLeaf } from "obsidian";
 import type TerminalPlugin from "./main";
+import type { TerminalPluginSettings } from "./settings";
 import type { CreateTabOpts } from "./terminal-tab-manager";
 import { shouldRunStartupCommandForTab } from "./startup-command";
 import type { TerminalView } from "./terminal-view";
 import { VIEW_TYPE_TERMINAL } from "./constants";
+
+export function getLeafForTerminalLocation(
+  workspace: Workspace,
+  location: TerminalPluginSettings["defaultLocation"],
+): WorkspaceLeaf | null {
+  switch (location) {
+    case "right":
+      return workspace.getRightLeaf(false);
+    case "tab":
+      return workspace.getLeaf("tab");
+    case "split-right":
+      return workspace.getLeaf("split", "vertical");
+    default:
+      return workspace.getLeaf("split", "horizontal");
+  }
+}
 
 /**
  * Open a tab in the existing terminal view, or open a fresh view with a
@@ -21,10 +39,7 @@ export async function openTabOrView(plugin: TerminalPlugin, opts: CreateTabOpts)
     }
   }
 
-  const leaf =
-    plugin.settings.defaultLocation === "right"
-      ? plugin.app.workspace.getRightLeaf(false)
-      : plugin.app.workspace.getLeaf("split", "horizontal");
+  const leaf = getLeafForTerminalLocation(plugin.app.workspace, plugin.settings.defaultLocation);
   if (!leaf) return;
 
   await leaf.setViewState({

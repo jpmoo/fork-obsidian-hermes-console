@@ -11,6 +11,7 @@ import { notifyProtocolHandlerError, validateProtocolCwd } from "./uri-cwd";
 import type { SavedViewState } from "./session-state";
 import type { TerminalTabManager } from "./terminal-tab-manager";
 import { ObsidianContextTracker } from "./obsidian-context-bridge";
+import { getLeafForTerminalLocation } from "./terminal-opener";
 import {
   HERMES_ICON_ID,
   HERMES_ICON_SVG,
@@ -245,21 +246,7 @@ export default class TerminalPlugin extends Plugin {
       return;
     }
 
-    let leaf: WorkspaceLeaf | null;
-    switch (this.settings.defaultLocation) {
-      case "right":
-        leaf = this.app.workspace.getRightLeaf(false);
-        break;
-      case "tab":
-        leaf = this.app.workspace.getLeaf("tab");
-        break;
-      case "split-right":
-        leaf = this.app.workspace.getLeaf("split", "vertical");
-        break;
-      default: // "bottom"
-        leaf = this.app.workspace.getLeaf("split", "horizontal");
-        break;
-    }
+    const leaf = getLeafForTerminalLocation(this.app.workspace, this.settings.defaultLocation);
 
     if (leaf) {
       const savedState = this.settings.lastViewState;
@@ -381,13 +368,7 @@ export default class TerminalPlugin extends Plugin {
       return;
     }
 
-    let leaf: WorkspaceLeaf | null;
-    switch (this.settings.defaultLocation) {
-      case "right":       leaf = this.app.workspace.getRightLeaf(false); break;
-      case "tab":         leaf = this.app.workspace.getLeaf("tab"); break;
-      case "split-right": leaf = this.app.workspace.getLeaf("split", "vertical"); break;
-      default:            leaf = this.app.workspace.getLeaf("split", "horizontal"); break;
-    }
+    const leaf = getLeafForTerminalLocation(this.app.workspace, this.settings.defaultLocation);
     if (!leaf) return;
 
     await leaf.setViewState({
