@@ -1,4 +1,5 @@
 import { FileSystemAdapter, Plugin, TFolder, WorkspaceLeaf, addIcon, setIcon } from "obsidian";
+import { existsSync, statSync } from "fs";
 import { VIEW_TYPE_TERMINAL } from "./constants";
 import { TerminalView } from "./terminal-view";
 import { TerminalSettingTab, DEFAULT_SETTINGS, type TerminalPluginSettings } from "./settings";
@@ -6,6 +7,7 @@ import { BinaryManager } from "./binary-manager";
 import { ThemeRegistry } from "./theme-registry";
 import { openRestoreSessionPicker } from "./recent-sessions";
 import { resumeHermesSession } from "./hermes-sessions";
+import { notifyProtocolHandlerError, validateProtocolCwd } from "./uri-cwd";
 import type { SavedViewState } from "./session-state";
 import type { TerminalTabManager } from "./terminal-tab-manager";
 import { ObsidianContextTracker } from "./obsidian-context-bridge";
@@ -154,11 +156,7 @@ export default class TerminalPlugin extends Plugin {
     // URI handler for external resume links. The plugin does not generate
     // any session-list note or write Hermes session metadata into the vault.
     this.registerObsidianProtocolHandler("hermes-console", (params) => {
-      if (params.resume) {
-        void resumeHermesSession(this, params.resume);
-      } else if (params.cwd) {
-        void this.openTerminalAt(decodeURIComponent(params.cwd));
-      }
+      void this.handleHermesConsoleUri(params).catch(notifyProtocolHandlerError);
     });
 
     // Settings tab
@@ -351,6 +349,27 @@ export default class TerminalPlugin extends Plugin {
     return vaultRelDir
       ? path.join(adapter.getBasePath(), vaultRelDir)
       : adapter.getBasePath();
+  }
+
+  private async handleHermesConsoleUri(params: Record<string, string>): Promise<void> {
+    if (params.resume) {
+      await resumeHermesSession(this, params.resume);
+      return;
+    }
+
+    if (!params.cwd) return;
+
+    // Obsidian protocol parameters are already decoded before they reach this
+    // handler. Do not call decodeURIComponent here: paths like "100% Notes"
+    // can throw "URI malformed" and literal percent-encoded folder names can
+    // be silently transformed.
+    const cwd = validateProtocolCwd(params.cwd, { existsSync, statSync });
+    if (!cwd) {
+      console.warn("[Hermes Console] Ignoring URI cwd because it is not an existing directory", params.cwd);
+      return;
+    }
+
+    await this.openTerminalAt(cwd);
   }
 
   private async openTerminalAt(cwd: string): Promise<void> {
