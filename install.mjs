@@ -33,15 +33,19 @@ for (const file of files) {
   console.log(`  Copied ${file}`);
 }
 
-// Copy Hermes companion integration used by the context bridge.
-const hermesCompanion = join(srcDir, "hermes", "obsidian_context_bridge.js");
-if (!existsSync(hermesCompanion)) {
-  console.error("Error: hermes/obsidian_context_bridge.js not found.");
-  process.exit(1);
-}
+// Copy Hermes plugin files used by the context bridge.
+const hermesPluginDir = join(srcDir, "hermes");
+const hermesFiles = ["obsidian_context_bridge.js", "plugin.yaml"];
 mkdirSync(join(pluginDir, "hermes"), { recursive: true });
-cpSync(hermesCompanion, join(pluginDir, "hermes", "obsidian_context_bridge.js"));
-console.log("  Copied hermes/obsidian_context_bridge.js");
+for (const file of hermesFiles) {
+  const source = join(hermesPluginDir, file);
+  if (!existsSync(source)) {
+    console.error(`Error: hermes/${file} not found.`);
+    process.exit(1);
+  }
+  cpSync(source, join(pluginDir, "hermes", file));
+  console.log(`  Copied hermes/${file}`);
+}
 
 // Copy node-pty (native module needed at runtime)
 const nodePtySrc = join(srcDir, "node_modules", "node-pty");

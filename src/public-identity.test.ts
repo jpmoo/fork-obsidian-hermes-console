@@ -38,7 +38,7 @@ describe("public plugin identity", () => {
     const uriDoc = readRepoFile("docs/uri-handler.md");
 
     expect(installScript).toContain('".obsidian", "plugins", "hermes-console"');
-    expect(installScript).toContain('"hermes", "obsidian_context_bridge.js"');
+    expect(installScript).toContain('"obsidian_context_bridge.js", "plugin.yaml"');
     expect(installScript).not.toContain('".obsidian", "plugins", "lean-terminal"');
 
     expect(readme).toContain(".obsidian/plugins/hermes-console");

@@ -13,7 +13,7 @@ Hermes Console brings the [Hermes Agent](https://github.com/NousResearch/hermes-
 
 Highlight a paragraph in Obsidian, press Enter in Hermes Console, and ask Hermes to rewrite, sharpen, research, or challenge that exact text. Selection in Obsidian becomes context in Hermes.
 
-Already use Hermes? Install Hermes Console with BRAT: add `dannyshmueli/obsidian-hermes-console`, enable it, click **Download binaries**, open the console, and press Enter on your next Hermes prompt.
+Already use Hermes? Install Hermes Console with BRAT: add `dannyshmueli/obsidian-hermes-console`, enable it, click **Download binaries**, open the console, and press Enter on your next Hermes prompt. The Hermes-side plugin appears as `obsidian-context-bridge`; that is expected and no extra Obsidian plugin is needed.
 
 Full install instructions: https://github.com/dannyshmueli/obsidian-hermes-console#installation
 
@@ -40,7 +40,7 @@ Hermes Console does not install Hermes itself. If `hermes` is already available 
 3. Install Hermes Console with the BRAT steps above.
 4. Open Hermes Console inside Obsidian and start working from your notes.
 
-## Architecture: one Obsidian plugin, one Hermes companion, one bridge file
+## Architecture: one Obsidian plugin, one Hermes plugin, one bridge file
 
 Hermes Console has three pieces. They are separate on purpose:
 
@@ -54,14 +54,15 @@ Hermes Console has three pieces. They are separate on purpose:
    - Plain Enter writes a fresh marker before the PTY receives Enter.
    - It is not a plugin, not a background service, not clipboard paste, and not an Obsidian-to-Hermes network connection.
 
-3. **Hermes companion integration: `hermes/obsidian_context_bridge.js`**
-   - Repo-provided Hermes-side integration loaded by the Hermes process launched inside the terminal.
+3. **Hermes plugin: `obsidian-context-bridge`**
+   - Repo-provided Hermes-side plugin loaded by the Hermes process launched inside the terminal.
+   - Appears in Hermes Plugins as `obsidian-context-bridge`; that is correct. It is not a second Obsidian plugin.
    - Reads `OBSIDIAN_CONTEXT_BRIDGE_PATH` or an explicit bridge path.
    - Uses `pre_llm_call` to inject the current selected-text/cursor context into the active Hermes turn and exposes `obsidian_context()` for large selections.
 
-So: **this is not two Obsidian plugins.** It is one Obsidian plugin plus a Hermes companion integration connected by one JSON bridge file.
+So: **this is not two Obsidian plugins.** It is one Obsidian plugin plus one Hermes plugin connected by one JSON bridge file.
 
-End-to-end selected-text/cursor behavior requires all three pieces: Obsidian capture, bridge file write, and Hermes companion loading in the integrated Hermes process.
+End-to-end selected-text/cursor behavior requires all three pieces: Obsidian capture, bridge file write, and the `obsidian-context-bridge` Hermes plugin loading in the integrated Hermes process.
 
 **Desktop only.** Requires Obsidian 1.5.0+.
 
@@ -115,7 +116,7 @@ End-to-end selected-text/cursor behavior requires all three pieces: Obsidian cap
 - Global **Send Obsidian context to Hermes** toggle controls whether selected text or cursor context is attached to Hermes turns
 - Selection wins when text is selected; otherwise cursor context can provide the current note location and nearby lines
 - Context is captured at submit time, not pasted into the terminal, so multi-line selections do not break prompt entry
-- The terminal process receives `OBSIDIAN_CONTEXT_BRIDGE_PATH` so the Hermes companion can read the right vault bridge file
+- The terminal process receives `OBSIDIAN_CONTEXT_BRIDGE_PATH` so the `obsidian-context-bridge` Hermes plugin can read the right vault bridge file
 - Large selections can stay out of the prompt body and be fetched by Hermes through `obsidian_context()`
 
 ## Installation
@@ -155,7 +156,7 @@ Use this path for beta builds or if the Hermes Console plugin is not yet availab
 1. Clone this repository
 2. Run `npm install` to install dependencies, including local `node-pty`
 3. Run `npm run build`
-4. Run `node install.mjs "/path/to/vault"` to copy `main.js`, `manifest.json`, `styles.css`, the Hermes companion bridge, and `node-pty` into `.obsidian/plugins/hermes-console`
+4. Run `node install.mjs "/path/to/vault"` to copy `main.js`, `manifest.json`, `styles.css`, the Hermes bridge plugin files, and `node-pty` into `.obsidian/plugins/hermes-console`
 5. Restart Obsidian and enable the plugin in **Settings > Community Plugins**
 
 ### Verify the install
@@ -166,7 +167,7 @@ Use this path for beta builds or if the Hermes Console plugin is not yet availab
 - Hermes CLI is installed separately and visible to Obsidian's PATH if you want Hermes autostart
 - A new terminal tab starts `hermes` by default when Hermes is available in PATH
 - If using note context: `<vault>/.obsidian/hermes/context.json` is updated when you press Enter in a Hermes terminal
-- If using note context: the Hermes process has the companion integration loaded and can receive `OBSIDIAN_CONTEXT_BRIDGE_PATH`
+- If using note context: the Hermes process has the `obsidian-context-bridge` plugin enabled and can receive `OBSIDIAN_CONTEXT_BRIDGE_PATH`
 
 ### Troubleshooting
 
@@ -206,7 +207,7 @@ See [Settings](docs/settings.md) for all configuration options.
 
 See [Session Persistence](docs/session-persistence.md) for how tab state is saved and restored.
 
-See [Hermes Obsidian Context Bridge](docs/hermes-obsidian-context-bridge.txt) for the optional context handoff.
+See [Hermes Obsidian Context Bridge](docs/hermes-obsidian-context-bridge.md) for the optional context handoff.
 
 See [URI Handler](docs/uri-handler.md) for the canonical `obsidian://hermes-console` protocol reference.
 
@@ -240,7 +241,7 @@ node install.mjs     # Install to default vault (D:\LOS Test)
 
 Hermes Console began as a fork of [Lean Terminal](https://github.com/polyipseity/obsidian-lean-terminal), an open-source terminal plugin for Obsidian. Thank you to the Lean Terminal maintainers and contributors for the original terminal foundation.
 
-This project has since diverged into Hermes Console: an Obsidian companion for Hermes Agent, with its own UI, context bridge, settings, docs, and roadmap.
+This project has since diverged into Hermes Console: an Obsidian plugin for Hermes Agent, with its own UI, context bridge, settings, docs, and roadmap.
 
 ### Upstream Lean Terminal contributors
 
