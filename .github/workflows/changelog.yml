@@ -41,4 +41,4 @@ jobs:
             Review and merge to update CHANGELOG.md on master.
           labels: |
             changelog
-          assignees: sdkasper
+          assignees: dannyshmueli
