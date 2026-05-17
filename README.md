@@ -9,6 +9,8 @@
 [![License](https://img.shields.io/badge/License-MIT-007BFF?style=flat-square&labelColor=000000)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=flat-square&labelColor=000000&logo=discord&logoColor=5865F2)](https://discord.gg/sbMg6PP2vq)
 
+<img width="1060" height="986" alt="Screenshot 2026-05-17 at 23 38 03" src="https://github.com/user-attachments/assets/afe42505-7572-47f6-9f4a-024091886321" />
+
 Hermes Console brings the [Hermes Agent](https://github.com/NousResearch/hermes-agent) workflow into [Obsidian](https://obsidian.md). It gives your vault a real embedded terminal, launches `hermes` by default when the Hermes CLI is installed, and can hand selected note context or cursor context to the Hermes turn without copy-paste.
 
 <p align="center">
