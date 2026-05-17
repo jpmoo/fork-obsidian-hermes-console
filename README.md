@@ -11,6 +11,10 @@
 
 Hermes Console brings the [Hermes Agent](https://github.com/NousResearch/hermes-agent) workflow into [Obsidian](https://obsidian.md). It gives your vault a real embedded terminal, launches `hermes` by default when the Hermes CLI is installed, and can hand selected note context or cursor context to the Hermes turn without copy-paste.
 
+<p align="center">
+  <img src="assets/readme/hermes-console-context-bridge.png" alt="Hermes Console context bridge diagram: Obsidian selection flows through context.json and obsidian-context-bridge into Hermes context" width="900">
+</p>
+
 Highlight a paragraph in Obsidian, press Enter in Hermes Console, and ask Hermes to rewrite, sharpen, research, or challenge that exact text. Selection in Obsidian becomes context in Hermes.
 
 Already use Hermes? Install Hermes Console with BRAT: add `dannyshmueli/obsidian-hermes-console`, enable it, click **Download binaries**, open the console, and press Enter on your next Hermes prompt. The Hermes-side plugin appears as `obsidian-context-bridge`; that is expected and no extra Obsidian plugin is needed.
