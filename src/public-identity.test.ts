@@ -15,10 +15,13 @@ describe("public plugin identity", () => {
       id: string;
       name: string;
       description: string;
+      author: string;
     };
 
     expect(manifest.id).toBe("hermes-console");
     expect(manifest.name).toBe("Hermes Console");
+    expect(manifest.author).toBe("Danny Shmueli");
+    expect(manifest.author).not.toMatch(/LeanProductivity|fork/i);
     expect(manifest.description).toContain("Hermes Agent");
     expect(manifest.description).toContain("embedded console");
     expect(manifest.description).not.toMatch(/\bObsidian\b/);
