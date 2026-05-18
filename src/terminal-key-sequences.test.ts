@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  bracketTerminalPaste,
+  BRACKETED_PASTE_END,
+  BRACKETED_PASTE_START,
   getTerminalEnterHandlingPlan,
   getPtySequenceForKeyboardEvent,
+  normalizeClipboardTextForTerminalPaste,
   SHIFT_ENTER_SEQUENCE,
   shouldCaptureObsidianContextBeforeSubmit,
   shouldWriteObsidianContextBridgeBeforeSubmit,
@@ -86,5 +90,26 @@ describe("getTerminalEnterHandlingPlan", () => {
     expect(getTerminalEnterHandlingPlan(keyEvent({ shiftKey: true }), true)).toEqual([
       { type: "write-pty-sequence", sequence: SHIFT_ENTER_SEQUENCE },
     ]);
+  });
+});
+
+describe("normalizeClipboardTextForTerminalPaste", () => {
+  it("removes one trailing newline so clipboard text does not auto-submit", () => {
+    expect(normalizeClipboardTextForTerminalPaste("hello\n")).toBe("hello");
+    expect(normalizeClipboardTextForTerminalPaste("hello\r\n")).toBe("hello");
+  });
+
+  it("preserves intentional interior newlines as carriage returns for the PTY", () => {
+    expect(normalizeClipboardTextForTerminalPaste("hello\nworld\n")).toBe("hello\rworld");
+  });
+
+  it("preserves one blank trailing line when the clipboard has two final newlines", () => {
+    expect(normalizeClipboardTextForTerminalPaste("hello\n\n")).toBe("hello\r");
+  });
+});
+
+describe("bracketTerminalPaste", () => {
+  it("wraps pasted text in bracketed paste markers", () => {
+    expect(bracketTerminalPaste("hello\n")).toBe(`${BRACKETED_PASTE_START}hello${BRACKETED_PASTE_END}`);
   });
 });

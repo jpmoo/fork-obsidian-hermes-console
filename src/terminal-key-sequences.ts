@@ -1,4 +1,6 @@
 export const SHIFT_ENTER_SEQUENCE = "\x1b[13;2u";
+export const BRACKETED_PASTE_START = "\x1b[200~";
+export const BRACKETED_PASTE_END = "\x1b[201~";
 
 export type TerminalEnterHandlingStep =
   | { type: "write-obsidian-context-bridge"; attachEnabled: boolean }
@@ -53,4 +55,12 @@ export function getTerminalEnterHandlingPlan(
 
   const sequence = getPtySequenceForKeyboardEvent(e);
   return sequence ? [{ type: "write-pty-sequence", sequence }] : [];
+}
+
+export function normalizeClipboardTextForTerminalPaste(text: string): string {
+  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n$/, "").replace(/\n/g, "\r");
+}
+
+export function bracketTerminalPaste(text: string): string {
+  return `${BRACKETED_PASTE_START}${normalizeClipboardTextForTerminalPaste(text)}${BRACKETED_PASTE_END}`;
 }

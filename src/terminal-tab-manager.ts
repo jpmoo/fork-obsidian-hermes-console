@@ -16,6 +16,7 @@ import type { BinaryManager } from "./binary-manager";
 import type { SavedTab } from "./session-state";
 import { WikiLinkAutocomplete, type AutocompleteEntry } from "./wikilink-autocomplete";
 import {
+  bracketTerminalPaste,
   getTerminalEnterHandlingPlan,
 } from "./terminal-key-sequences";
 import {
@@ -822,7 +823,7 @@ export class TerminalTabManager {
         navigator.clipboard.readText().then((text) => {
           if (text) {
             const s = this.sessions.find((s) => s.id === id);
-            if (s) s.pty.write(text);
+            if (s) s.pty.write(bracketTerminalPaste(text));
           }
         }).catch(() => { /* clipboard unavailable */ });
         return false;
