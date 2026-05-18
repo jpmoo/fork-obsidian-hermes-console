@@ -44,11 +44,11 @@ The local JSON handoff from Hermes Console to Hermes. The Obsidian plugin captur
 
 ### Hermes companion context integration
 
-The repo-provided Hermes-side integration that reads the Obsidian context bridge through `pre_llm_call` and exposes `obsidian_context()` for full context fetches. A working v1 context feature requires this companion to be loaded/wired into the Hermes process launched by Hermes Console.
+The repo-provided Hermes-side integration that reads the Obsidian context bridge through Hermes hooks, exposes `obsidian_context()` for full context fetches, and writes per-tab busy/idle status files. A working v1 context feature requires this companion to be loaded/wired into the Hermes process launched by Hermes Console.
 
-- Also known as: Hermes companion, pre-LLM hook, `obsidian_context()` tool
+- Also known as: Hermes companion, pre-LLM hook, `obsidian_context()` tool, busy/idle status hook
 - Not: bundled Obsidian runtime code, Hermes core change
-- Example: Hermes loads `hermes/obsidian_context_bridge.js`, reads `OBSIDIAN_CONTEXT_BRIDGE_PATH`, injects `<obsidian_context>` into the current model turn, and lets the model call `obsidian_context()` for large selections.
+- Example: Hermes loads `hermes/obsidian_context_bridge.js`, reads `OBSIDIAN_CONTEXT_BRIDGE_PATH`, injects serialized selected/cursor context into the current model turn, lets the model call `obsidian_context()` for large selections, and writes `.obsidian/hermes/runtime/<tab-id>.json` for tab status.
 
 ### Working context feature
 

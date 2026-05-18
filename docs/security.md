@@ -1,25 +1,82 @@
 # Security
 
-A full security review of the codebase was conducted covering code-level vulnerabilities, native module handling, and supply chain risks. Here is what was checked and what was found.
+Hermes Console is a desktop Obsidian plugin that embeds a real PTY. It also includes a Hermes-side plugin for selected-note/cursor context and tab busy/idle status. This page documents the current security posture and the main boundaries to understand.
 
-**Checks performed:**
-- Command/shell injection in PTY spawn, shell path handling, and ZIP extraction
-- Path traversal in file operations
-- Input validation at all user-facing and URI-handler boundaries
-- Integrity verification of downloaded native binaries
-- XSS and prototype pollution in the Obsidian UI layer
-- Hardcoded secrets, sensitive data in logs, and dynamic code execution
-- GitHub Actions workflow supply chain (trigger conditions, action pinning)
-- npm dependency audit for known CVEs
+## Local-only architecture
 
-**No issues found in:**
-- Shell command construction (all paths fed into `execSync` are system-controlled, not user-supplied)
-- Claude session resume commands (UUID-validated before PTY write)
-- Obsidian UI rendering (no `innerHTML` or `eval` usage)
-- Hardcoded credentials or tokens
+Hermes Console does not run a network server for the context bridge.
 
-**Binary download integrity:**
+The Obsidian plugin writes local JSON files inside the active vault:
 
-When the plugin downloads native `node-pty` binaries from GitHub Releases, it verifies their SHA-256 checksum against a `checksums.json` file published alongside the release. Checksum verification is mandatory - if `checksums.json` is unreachable or does not contain an entry for the downloaded asset, the installation is aborted.
+```text
+<vault>/.obsidian/hermes/context.json
+<vault>/.obsidian/hermes/runtime/<tab-id>.json
+```
 
-SHA-256 checksums for each release are also published in `checksums.json` attached to every [GitHub Release](https://github.com/dannyshmueli/obsidian-hermes-console/releases) for manual verification.
+The Hermes process launched by Hermes Console receives explicit environment variables such as `OBSIDIAN_CONTEXT_BRIDGE_PATH` and `OBSIDIAN_HERMES_STATUS_PATH`. The Hermes-side `obsidian-context-bridge` plugin reads/writes those local files through Hermes hooks.
+
+There is no socket, clipboard trick, browser extension, or external service in this bridge.
+
+## Native terminal boundary
+
+Hermes Console uses `node-pty` to run the configured shell and startup command. This is the point of the plugin: it is a real terminal, not a restricted command runner.
+
+Security implications:
+
+- Commands typed into the terminal run with the same permissions as the local user.
+- The startup command defaults to `hermes` for fresh tabs.
+- Restored terminal tabs restore scrollback/history visually; the old shell process does not survive Obsidian quit.
+- Hermes session restore runs `hermes --resume <session-id>` for a selected live Hermes session.
+
+## Native binary download integrity
+
+Community Plugins and BRAT install the Obsidian plugin assets, but native `node-pty` binaries are downloaded from GitHub Releases after the user clicks **Settings > Hermes Console > Download binaries**.
+
+Hermes Console verifies each downloaded ZIP with SHA-256 against the `checksums.json` file published alongside the release. Checksum verification is mandatory: if `checksums.json` is unreachable or does not contain the downloaded asset, installation is aborted.
+
+SHA-256 checksums for each release are attached to every GitHub Release:
+
+https://github.com/dannyshmueli/obsidian-hermes-console/releases
+
+## Context injection safety
+
+Selected note text is treated as untrusted data.
+
+The bridge injects context into Hermes using serialized fields rather than raw markdown fences. This avoids common boundary breaks such as selected text containing triple backticks, fake XML/system tags, or closing tags.
+
+Large selections can be exposed through the explicit `obsidian_context()` Hermes tool instead of forcing the full text into the prompt body.
+
+## Filesystem scope
+
+Expected filesystem access:
+
+- spawn the configured shell through `node-pty`
+- read/write plugin settings and workspace state through Obsidian APIs where possible
+- download and unpack platform-specific `node-pty` binaries into the plugin directory
+- write/read bridge JSON files under `<vault>/.obsidian/hermes/`
+- validate explicit user-provided directories for URI/open-here flows
+
+The bridge files stay inside the active vault's `.obsidian/hermes/` directory.
+
+## Review checks performed
+
+Recent release checks cover:
+
+- PTY spawn path handling and shell/startup command behavior
+- URI handler input validation for `cwd` and `resume`
+- path traversal risks in binary ZIP extraction and bridge file paths
+- checksum enforcement for native binary downloads
+- Obsidian UI rendering paths: no dynamic HTML injection for terminal metadata
+- hardcoded secrets and sensitive logs
+- GitHub Actions release workflow and release assets
+- npm dependency audit posture
+
+## No known issues in current release path
+
+No known release-blocking issues are open in the current Community Plugin path for:
+
+- binary checksum verification
+- selected-note/cursor context bridge installation model
+- Hermes busy/idle status bridge
+- public manifest metadata
+- default new-install behavior

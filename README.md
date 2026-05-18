@@ -65,7 +65,7 @@ Hermes Console has three pieces. They are separate on purpose:
 
 1. **Obsidian plugin: Hermes Console**
    - This repository's visible Obsidian plugin.
-   - Owns the terminal UI, tabs, PTY sessions, Obsidian commands, settings, safe tab close, and note-context status header.
+   - Owns the terminal UI, tabs, PTY sessions, Obsidian commands, settings, safe tab close, note-context status header, and Hermes busy/idle indicators.
    - Captures selected text or cursor context from the active Obsidian note when you press Enter in a Hermes terminal.
 
 2. **Bridge file: `.obsidian/hermes/context.json`**
@@ -77,11 +77,11 @@ Hermes Console has three pieces. They are separate on purpose:
    - Repo-provided Hermes-side plugin installed with `hermes plugins install dannyshmueli/obsidian-hermes-console --enable` and loaded by the Hermes process launched inside the terminal.
    - Appears in Hermes Plugins as `obsidian-context-bridge`; that is correct. It is not a second Obsidian plugin.
    - Reads `OBSIDIAN_CONTEXT_BRIDGE_PATH` or an explicit bridge path.
-   - Uses `pre_llm_call` to inject the current selected-text/cursor context into the active Hermes turn and exposes `obsidian_context()` for large selections.
+   - Uses Hermes hooks to inject the current selected-text/cursor context into the active Hermes turn, expose `obsidian_context()` for large selections, and write busy/idle status for the matching terminal tab.
 
 So: **this is not two Obsidian plugins.** It is one Obsidian plugin plus one Hermes plugin connected by one JSON bridge file.
 
-End-to-end selected-text/cursor behavior requires all three pieces: Obsidian capture, bridge file write, and the `obsidian-context-bridge` Hermes plugin loading in the integrated Hermes process.
+End-to-end selected-text/cursor behavior requires all three pieces: Obsidian capture, bridge file write, and the `obsidian-context-bridge` Hermes plugin loading in the integrated Hermes process. Busy/idle tab status uses the same Hermes plugin plus a per-tab status file under `.obsidian/hermes/runtime/`.
 
 **Desktop only.** Requires Obsidian 1.5.0+.
 
@@ -106,7 +106,7 @@ End-to-end selected-text/cursor behavior requires all three pieces: Obsidian cap
 
 ### Vault Integration
 
-- Opens in vault root by default; command palette to open in the current file's folder; right-click any file or folder to open a terminal there
+- Opens in the right sidebar by default; command palette to open in the current file's folder; right-click any file or folder to open a terminal there
 - Drag files from the Obsidian file explorer or Windows Explorer into the terminal to insert the absolute path (spaces auto-quoted)
 - Wiki-link autocomplete: type `[[` in the terminal to pick any vault note and insert as a wiki-link, vault-relative path, or absolute path
 
@@ -132,7 +132,7 @@ End-to-end selected-text/cursor behavior requires all three pieces: Obsidian cap
 
 ### Hermes Context Bridge
 
-- Global **Send Obsidian context to Hermes** toggle controls whether selected text or cursor context is attached to Hermes turns
+- Global **Send Obsidian context to Hermes** toggle is on by default for new installs and controls whether selected text or cursor context is attached to Hermes turns
 - Selection wins when text is selected; otherwise cursor context can provide the current note location and nearby lines
 - Context is captured at submit time, not pasted into the terminal, so multi-line selections do not break prompt entry
 - The terminal process receives `OBSIDIAN_CONTEXT_BRIDGE_PATH` so the `obsidian-context-bridge` Hermes plugin can read the right vault bridge file
@@ -235,7 +235,7 @@ See [Settings](docs/settings.md) for all configuration options.
 
 See [Session Persistence](docs/session-persistence.md) for how tab state is saved and restored.
 
-See [Hermes Obsidian Context Bridge](docs/hermes-obsidian-context-bridge.md) for the optional context handoff.
+See [Hermes Obsidian Context Bridge](docs/hermes-obsidian-context-bridge.md) for the context handoff and busy/idle status bridge.
 
 See [URI Handler](docs/uri-handler.md) for the canonical `obsidian://hermes-console` protocol reference.
 

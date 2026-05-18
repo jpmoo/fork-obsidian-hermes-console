@@ -7,7 +7,7 @@
 | Font size | 14 | Terminal font size in pixels |
 | Font family | Menlo, Monaco, 'Courier New', monospace | Terminal font stack |
 | Theme | Obsidian Dark | Color theme for the terminal |
-| Icon | terminal | Lucide icon name for the ribbon and panel tab icon |
+| Icon | Hermes wing/caduceus | Custom icon for the ribbon and panel tab. Any Lucide icon name also works |
 | Cursor blink | On | Whether the cursor blinks |
 | Scrollback | 500000 | Number of lines kept in scroll history |
 | Background color | Theme default | Override the theme background with any CSS color (hex, RGB, etc.) |
