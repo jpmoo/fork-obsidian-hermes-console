@@ -28,6 +28,9 @@ export class BinaryManager {
 
   constructor(pluginDir: string) {
     this.pluginDir = pluginDir;
+    // Direct Node fs access is intentional here: Obsidian's Vault API cannot install
+    // or chmod native node-pty binaries. All writes are scoped to this plugin's own
+    // directory under <vault>/.obsidian/plugins/hermes-console/.
     this.fs = window.require("fs") as typeof import("fs");
     this.path = window.require("path") as typeof import("path");
     this.childProcess = window.require("child_process") as typeof import("child_process");

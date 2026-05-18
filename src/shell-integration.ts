@@ -70,6 +70,9 @@ function joinPath(...parts: string[]): string {
 
 /** Write a script to disk if it doesn't exist or has changed. */
 function ensureScript(dir: string, filename: string, content: string): string {
+  // Direct Node fs access is intentional here: shell integration needs actual
+  // init script files because shells accept file paths/env vars, not Obsidian
+  // Vault adapter handles. Scripts are written only under this plugin directory.
   const fs = window.require("fs") as typeof import("fs");
   fs.mkdirSync(dir, { recursive: true });
   const filePath = joinPath(dir, filename);

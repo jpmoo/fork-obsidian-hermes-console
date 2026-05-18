@@ -17,6 +17,9 @@ export class ThemeRegistry {
 
   async load(): Promise<void> {
     const path = window.require("path") as typeof import("path");
+    // Direct Node fs access is intentional here: optional themes.json is a plugin
+    // configuration file next to main.js, not a vault note. Failure falls back to
+    // built-in themes and never scans arbitrary directories.
     const fs = (window.require("fs") as typeof import("fs")).promises;
 
     const themesPath = path.join(this.pluginDir, "themes.json");

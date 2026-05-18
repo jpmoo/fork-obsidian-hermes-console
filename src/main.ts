@@ -1,5 +1,4 @@
 import { FileSystemAdapter, Plugin, TFolder, WorkspaceLeaf, addIcon, setIcon } from "obsidian";
-import { existsSync, statSync } from "fs";
 import { VIEW_TYPE_TERMINAL } from "./constants";
 import { TerminalView } from "./terminal-view";
 import { TerminalSettingTab, DEFAULT_SETTINGS, type TerminalPluginSettings } from "./settings";
@@ -350,7 +349,14 @@ export default class TerminalPlugin extends Plugin {
     // handler. Do not call decodeURIComponent here: paths like "100% Notes"
     // can throw "URI malformed" and literal percent-encoded folder names can
     // be silently transformed.
-    const cwd = validateProtocolCwd(params.cwd, { existsSync, statSync });
+    // Direct Node fs access is intentional here: URI links may request a terminal
+    // cwd outside the vault, so the Vault API cannot validate it. We only stat
+    // this explicit user-provided path before opening a PTY there.
+    const fs = window.require("fs") as typeof import("fs");
+    const cwd = validateProtocolCwd(params.cwd, {
+      existsSync: fs.existsSync,
+      statSync: fs.statSync,
+    });
     if (!cwd) {
       console.warn("[Hermes Console] Ignoring URI cwd because it is not an existing directory", params.cwd);
       return;

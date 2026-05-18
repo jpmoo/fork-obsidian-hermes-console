@@ -41,6 +41,9 @@ function getDefaultShell(): string {
   if (Platform.isWin) {
     const pwsh = process.env.ProgramFiles + "\\PowerShell\\7\\pwsh.exe";
     try {
+      // Direct Node fs access is intentional here: selecting PowerShell 7 as the
+      // default Windows shell requires checking this well-known executable path.
+      // No file contents are read.
       const fs = window.require("fs") as typeof import("fs");
       if (fs.existsSync(pwsh)) return pwsh;
     } catch {
@@ -69,6 +72,9 @@ function getShellArgs(shellPath: string): string[] {
  * Throws if the path does not exist or is not a file.
  */
 function validateShellPath(shellPath: string): void {
+  // Direct Node fs access is intentional here: node-pty needs a real executable
+  // shell path, which can be outside the vault. We only stat the configured shell
+  // path before spawning; we do not enumerate or read arbitrary files.
   const fs = window.require("fs") as typeof import("fs");
   try {
     const stat = fs.statSync(shellPath);

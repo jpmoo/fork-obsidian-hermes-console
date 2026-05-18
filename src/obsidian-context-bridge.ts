@@ -195,6 +195,9 @@ export function writeObsidianContextBridgePayloadSync(
   payload: ObsidianContextBridgePayload,
   bridgePath = payload.bridgePath,
 ): void {
+  // Direct Node fs access is intentional here: the bridge file lives in the
+  // vault config folder so the Hermes CLI process can read selected-note context
+  // outside Obsidian's plugin runtime. Path is always resolved from this vault.
   const fs = getRuntimeRequire()("fs") as typeof import("fs");
   const path = getRuntimeRequire()("path") as typeof import("path");
   fs.mkdirSync(path.dirname(bridgePath), { recursive: true });
@@ -205,6 +208,9 @@ export function readObsidianContextBridgePayloadSync(
   bridgePath: string,
 ): ObsidianContextBridgePayload | null {
   try {
+    // Direct Node fs access is intentional here: this mirrors the Hermes-side
+    // bridge reader for tests/debugging and only reads the explicit bridge file
+    // path created from the active vault config directory.
     const fs = getRuntimeRequire()("fs") as typeof import("fs");
     return parseObsidianContextBridgePayload(fs.readFileSync(bridgePath, "utf8"));
   } catch {
