@@ -95,6 +95,12 @@ export interface TerminalSession {
   mode2031: boolean;
   /** Whether this tab is pinned and cannot be closed. */
   pinned: boolean;
+  /** True while an embedded Hermes turn is actively running. */
+  hermesBusy: boolean;
+  /** True after Hermes finishes in a background tab until the user views it. */
+  hermesUnread: boolean;
+  /** Small rolling buffer for Hermes OSC markers that may arrive split across PTY chunks. */
+  hermesBusyMarkerBuffer: string;
   autocomplete: WikiLinkAutocomplete | null;
   /** Floating label shown while a file is dragged over the terminal. */
   dragLabel: HTMLElement;
@@ -511,6 +517,70 @@ export class TerminalTabManager {
     session.parserDisposables.push({ dispose: cleanup });
   }
 
+  /**
+   * Hermes CLI emits OSC 777;hermes:busy=1 while a turn is running and
+   * OSC 777;hermes:busy=0 when it returns to idle / waits for user input.
+   * Keep this UI-only: if the escape sequence is absent, tabs behave normally.
+   */
+  private setupHermesBusyIndicator(session: TerminalSession, terminal: Terminal): void {
+    const disposable = terminal.parser.registerOscHandler(777, (data) => {
+      if (this.applyHermesBusyPayload(session, data)) {
+        return true;
+      }
+      return false;
+    });
+    session.parserDisposables.push(disposable);
+  }
+
+  private applyHermesBusyPayload(session: TerminalSession, data: string): boolean {
+    const trimmed = data.trim();
+    if (trimmed !== "hermes:busy=1" && trimmed !== "hermes:busy=0") {
+      return false;
+    }
+    const busy = trimmed.endsWith("=1");
+    if (session.hermesBusy !== busy) {
+      const wasBusy = session.hermesBusy;
+      session.hermesBusy = busy;
+      if (busy) {
+        session.hermesUnread = false;
+      } else if (wasBusy && session.id !== this.activeId) {
+        session.hermesUnread = true;
+      }
+      this.renderTabBar();
+    }
+    return true;
+  }
+
+  private consumeHermesBusyMarkers(session: TerminalSession, data: string): string {
+    const combined = session.hermesBusyMarkerBuffer + data;
+    const markerPattern = /(?:\x1b\]777;|\?\]?777;)(hermes:busy=[01])(?:\x07|\x1b\\|\?\\)?/g;
+    let output = "";
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = markerPattern.exec(combined)) !== null) {
+      output += combined.slice(lastIndex, match.index);
+      this.applyHermesBusyPayload(session, match[1]);
+      lastIndex = markerPattern.lastIndex;
+    }
+    output += combined.slice(lastIndex);
+
+    const partialMatch = output.match(/(?:\x1b\]777;|\?\]?777;)?(?:hermes:busy=)?[01]?$/);
+    if (partialMatch && partialMatch.index !== undefined) {
+      const partial = output.slice(partialMatch.index);
+      if (partial && ("\x1b]777;hermes:busy=0".startsWith(partial) || "\x1b]777;hermes:busy=1".startsWith(partial) || "?]777;hermes:busy=0".startsWith(partial) || "?]777;hermes:busy=1".startsWith(partial) || "?777;hermes:busy=0".startsWith(partial) || "?777;hermes:busy=1".startsWith(partial))) {
+        session.hermesBusyMarkerBuffer = partial;
+        output = output.slice(0, partialMatch.index);
+      } else {
+        session.hermesBusyMarkerBuffer = "";
+      }
+    } else {
+      session.hermesBusyMarkerBuffer = "";
+    }
+
+    return output;
+  }
+
   private buildXterm(
     containerEl: HTMLElement,
     opts?: CreateTabOpts,
@@ -837,6 +907,7 @@ export class TerminalTabManager {
       try {
         pty.spawn(this.settings.shellPath, sessionCwd, cols, rows, {
           OBSIDIAN_CONTEXT_BRIDGE_PATH: resolveObsidianContextBridgePath(this.app),
+          OBSIDIAN_HERMES_CONSOLE: "1",
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : "unknown error";
@@ -845,9 +916,11 @@ export class TerminalTabManager {
         return;
       }
 
-      // Wire data: PTY -> xterm
+      // Wire data: PTY -> xterm. Strip Hermes OSC busy markers here as a
+      // fallback too: some xterm/Electron paths render OSC-ST visibly instead
+      // of invoking registerOscHandler for custom OSC codes.
       pty.onData((data: string) => {
-        terminal.write(data);
+        terminal.write(this.consumeHermesBusyMarkers(session, data));
       });
 
       // Wire data: xterm -> PTY. Autocomplete may consume data (returns true) to
@@ -917,6 +990,9 @@ export class TerminalTabManager {
       parserDisposables: [],
       mode2031: false,
       pinned: opts?.pinned ?? false,
+      hermesBusy: false,
+      hermesUnread: false,
+      hermesBusyMarkerBuffer: "",
       autocomplete,
       dragLabel,
       searchAddon,
@@ -926,6 +1002,7 @@ export class TerminalTabManager {
       creationOpts: opts,
     };
     session.parserDisposables.push(resultsDisposable);
+    this.setupHermesBusyIndicator(session, terminal);
 
     terminal.onSelectionChange(() => {
       if (!this.settings.copyOnSelect) return;
@@ -948,6 +1025,10 @@ export class TerminalTabManager {
   switchTab(id: string): void {
     if (!this.sessions.some((s) => s.id === id && !s.removedFromTabs)) return;
     this.activeId = id;
+    const activeSession = this.sessions.find((s) => s.id === id && !s.removedFromTabs);
+    if (activeSession?.hermesUnread) {
+      activeSession.hermesUnread = false;
+    }
 
     for (const session of this.sessions) {
       if (session.id === id && !session.removedFromTabs) {
@@ -1331,6 +1412,8 @@ export class TerminalTabManager {
       if (session.id === this.activeId) classes.push("active");
       if (session.pinned) classes.push("terminal-tab--pinned");
       if (session.color) classes.push("terminal-tab--colored");
+      if (session.hermesBusy) classes.push("terminal-tab--busy");
+      if (session.hermesUnread) classes.push("terminal-tab--unread");
       const tab = this.tabBarEl.createDiv({ cls: classes.join(" ") });
 
       // Tab color drives two CSS variables. All visual rules (border + tinted
@@ -1343,6 +1426,11 @@ export class TerminalTabManager {
       }
 
       const label = tab.createSpan({ cls: "terminal-tab-label", text: session.name });
+      if (session.hermesBusy) {
+        tab.createSpan({ cls: "terminal-tab-busy-indicator", attr: { "aria-label": "Hermes running" } });
+      } else if (session.hermesUnread) {
+        tab.createSpan({ cls: "terminal-tab-unread-indicator", attr: { "aria-label": "Hermes response ready" } });
+      }
       tab.addEventListener("click", () => this.switchTab(session.id));
       tab.addEventListener("contextmenu", (e) => {
         e.preventDefault();
