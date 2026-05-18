@@ -620,7 +620,7 @@ describe("describeObsidianContextForHeader", () => {
     });
 
     expect(describeObsidianContextForHeader(false, selectionPayload)).toBe("OFF");
-    expect(describeObsidianContextForHeader(true, null)).toBe("ON - no active terminal");
+    expect(describeObsidianContextForHeader(true, null)).toBe("No active terminal");
     expect(describeObsidianContextForHeader(true, buildObsidianContextBridgePayload({
       app: makeApp(null),
       tracker: new ObsidianContextTracker(),
@@ -628,8 +628,8 @@ describe("describeObsidianContextForHeader", () => {
       terminalId: "terminal-1",
       terminalTitle: "Hermes",
       now: new Date("2026-05-16T12:00:00.000Z"),
-    }))).toBe("ON · No Markdown context");
-    expect(describeObsidianContextForHeader(true, selectionPayload)).toBe("ON · Selection: 2 lines from Header.md");
-    expect(describeObsidianContextForHeader(true, cursorPayload)).toBe("ON · Cursor: Cursor.md:1");
+    }))).toBe("No Markdown context");
+    expect(describeObsidianContextForHeader(true, selectionPayload)).toBe("Header.md:1-2");
+    expect(describeObsidianContextForHeader(true, cursorPayload)).toBe("Cursor.md:1");
   });
 });

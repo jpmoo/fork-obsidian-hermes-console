@@ -434,6 +434,18 @@ export class TerminalTabManager {
     });
 
     const previewPayload = this.buildObsidianContextPreviewPayload();
+    const context = previewPayload?.context ?? null;
+    if (this.settings.sendObsidianContextToHermes && context) {
+      const marker = this.contextHeaderEl.createSpan({
+        cls: `terminal-context-marker terminal-context-marker--${context.type}`,
+        attr: { "aria-label": context.type === "selection" ? "Obsidian selection attached" : "Obsidian cursor context attached" },
+      });
+      marker.createSpan({ cls: "terminal-context-marker-dot" });
+      marker.createSpan({
+        cls: "terminal-context-marker-label",
+        text: context.type === "selection" ? `${context.lineCount}L` : "CUR",
+      });
+    }
     this.contextHeaderEl.createSpan({
       cls: "terminal-context-status",
       text: describeObsidianContextForHeader(
@@ -533,12 +545,12 @@ export class TerminalTabManager {
   }
 
   private applyHermesBusyPayload(session: TerminalSession, data: string): boolean {
-    const trimmed = data.trim();
-    if (trimmed !== "hermes:busy=1" && trimmed !== "hermes:busy=0") {
+    const match = data.match(/hermes:busy=([01])/);
+    if (!match) {
       return false;
     }
-    const busy = trimmed.endsWith("=1");
-    if (session.hermesBusy !== busy) {
+    const busy = match[1] === "1";
+    if (session.hermesBusy !== busy || session.hermesBusyMarkerBuffer) {
       const wasBusy = session.hermesBusy;
       session.hermesBusy = busy;
       if (busy) {
@@ -546,6 +558,7 @@ export class TerminalTabManager {
       } else if (wasBusy && session.id !== this.activeId) {
         session.hermesUnread = true;
       }
+      session.hermesBusyMarkerBuffer = "";
       this.renderTabBar();
     }
     return true;
@@ -553,7 +566,8 @@ export class TerminalTabManager {
 
   private consumeHermesBusyMarkers(session: TerminalSession, data: string): string {
     const combined = session.hermesBusyMarkerBuffer + data;
-    const markerPattern = /(?:\x1b\]777;|\?\]?777;)(hermes:busy=[01])(?:\x07|\x1b\\|\?\\)?/g;
+    session.hermesBusyMarkerBuffer = "";
+    const markerPattern = /(?:\x1b\]777;|\?\]?777;)(hermes:busy=[01])(?:\x07|\x1b\\|\?\\|\\)?/g;
     let output = "";
     let lastIndex = 0;
     let match: RegExpExecArray | null;
@@ -565,17 +579,21 @@ export class TerminalTabManager {
     }
     output += combined.slice(lastIndex);
 
-    const partialMatch = output.match(/(?:\x1b\]777;|\?\]?777;)?(?:hermes:busy=)?[01]?$/);
-    if (partialMatch && partialMatch.index !== undefined) {
-      const partial = output.slice(partialMatch.index);
-      if (partial && ("\x1b]777;hermes:busy=0".startsWith(partial) || "\x1b]777;hermes:busy=1".startsWith(partial) || "?]777;hermes:busy=0".startsWith(partial) || "?]777;hermes:busy=1".startsWith(partial) || "?777;hermes:busy=0".startsWith(partial) || "?777;hermes:busy=1".startsWith(partial))) {
-        session.hermesBusyMarkerBuffer = partial;
-        output = output.slice(0, partialMatch.index);
-      } else {
-        session.hermesBusyMarkerBuffer = "";
+    const markerPrefixes = [
+      "\x1b]777;hermes:busy=0",
+      "\x1b]777;hermes:busy=1",
+      "?]777;hermes:busy=0",
+      "?]777;hermes:busy=1",
+      "?777;hermes:busy=0",
+      "?777;hermes:busy=1",
+    ];
+    for (let start = Math.max(0, output.length - 24); start < output.length; start++) {
+      const suffix = output.slice(start);
+      if (suffix && markerPrefixes.some((prefix) => prefix.startsWith(suffix))) {
+        session.hermesBusyMarkerBuffer = suffix;
+        output = output.slice(0, start);
+        break;
       }
-    } else {
-      session.hermesBusyMarkerBuffer = "";
     }
 
     return output;
@@ -920,7 +938,11 @@ export class TerminalTabManager {
       // fallback too: some xterm/Electron paths render OSC-ST visibly instead
       // of invoking registerOscHandler for custom OSC codes.
       pty.onData((data: string) => {
-        terminal.write(this.consumeHermesBusyMarkers(session, data));
+        const cleanData = this.consumeHermesBusyMarkers(session, data);
+        terminal.write(cleanData);
+        if (session.hermesBusy && /(?:^|[\r\n])(?:[❯›❱>›]\s?|[$#%>]\s)$/.test(cleanData)) {
+          this.applyHermesBusyPayload(session, "hermes:busy=0");
+        }
       });
 
       // Wire data: xterm -> PTY. Autocomplete may consume data (returns true) to

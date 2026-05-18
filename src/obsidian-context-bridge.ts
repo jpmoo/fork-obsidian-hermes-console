@@ -292,14 +292,13 @@ export function describeObsidianContextForHeader(
   payload: ObsidianContextBridgePayload | null,
 ): string {
   if (!enabled) return "OFF";
-  if (!payload) return "ON - no active terminal";
+  if (!payload) return "No active terminal";
   if (!payload.attach.enabled) return "OFF";
-  if (!payload.context) return "ON · No Markdown context";
+  if (!payload.context) return "No Markdown context";
   if (payload.context.type === "selection") {
-    const unit = payload.context.lineCount === 1 ? "line" : "lines";
-    return `ON · Selection: ${payload.context.lineCount} ${unit} from ${payload.context.file.name}`;
+    return `${payload.context.file.name}:${payload.context.range.from.line + 1}-${payload.context.range.to.line + 1}`;
   }
-  return `ON · Cursor: ${payload.context.file.name}:${payload.context.cursor.line + 1}`;
+  return `${payload.context.file.name}:${payload.context.cursor.line + 1}`;
 }
 
 export class ObsidianContextBridgeConsumer {

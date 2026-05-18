@@ -419,12 +419,51 @@ body.theme-light .terminal-view-container {
   background: var(--hermes-accent-strong);
 }
 
+.terminal-context-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 42%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-primary));
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.terminal-context-marker-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--interactive-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 22%, transparent);
+}
+
+.terminal-context-marker--cursor {
+  border-color: var(--hermes-border-soft);
+  background: color-mix(in srgb, var(--hermes-accent) 10%, var(--background-primary));
+  color: var(--text-muted);
+}
+
+.terminal-context-marker--cursor .terminal-context-marker-dot {
+  background: var(--hermes-accent-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--hermes-accent) 18%, transparent);
+}
+
 .terminal-context-status {
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  font-family: var(--font-monospace);
+  font-size: 11px;
 }
 
 .terminal-view-container.terminal-tabs-left .terminal-tab.active {
