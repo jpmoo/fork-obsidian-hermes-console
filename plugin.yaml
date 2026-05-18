@@ -6,5 +6,8 @@ author: Danny Shmueli
 kind: standalone
 provides_hooks:
   - pre_llm_call
+  - post_llm_call
+  - on_session_end
+  - on_session_finalize
 provides_tools:
   - obsidian_context

@@ -14,6 +14,12 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from .obsidian_status_bridge import (
+    _on_session_end as _status_on_session_end,
+    _post_llm_call as _status_post_llm_call,
+    _pre_llm_call as _status_pre_llm_call,
+)
+
 SCHEMA_VERSION = 1
 DEFAULT_MAX_AGE_MS = 2 * 60 * 1000
 INLINE_SELECTION_LIMIT = 4_000
@@ -26,6 +32,9 @@ _latest_context: Optional[Dict[str, Any]] = None
 
 def register(ctx):
     ctx.register_hook("pre_llm_call", _pre_llm_call)
+    ctx.register_hook("post_llm_call", _status_post_llm_call)
+    ctx.register_hook("on_session_end", _status_on_session_end)
+    ctx.register_hook("on_session_finalize", _status_on_session_end)
     ctx.register_tool(
         name="obsidian_context",
         toolset="plugin_obsidian_context_bridge",
@@ -41,6 +50,7 @@ def register(ctx):
 
 
 def _pre_llm_call(**kwargs):
+    _status_pre_llm_call(**kwargs)
     accepted = _read_and_consume()
     injection = accepted.get("injection") if accepted else ""
     if not injection:

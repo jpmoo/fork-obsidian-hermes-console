@@ -11,7 +11,6 @@ import { isObsidianDark } from "./themes";
 import { mixHex } from "./color-utils";
 import { findTabColor, DEFAULT_TINT_STRENGTH, MAX_TINT_STRENGTH } from "./tab-colors";
 import { ThemeRegistry } from "./theme-registry";
-import { consumeHermesBusyMarkers } from "./hermes-busy-markers";
 import type { TerminalPluginSettings, NotificationSound } from "./settings";
 import type { BinaryManager } from "./binary-manager";
 import type { SavedTab } from "./session-state";
@@ -33,6 +32,13 @@ import {
   isDestructiveKillConfirmed,
 } from "./terminal-session-actions";
 import { shouldRunStartupCommandForTab } from "./startup-command";
+import {
+  createHermesHookStatusState,
+  hermesHookStatusFilePath,
+  readHermesHookBusyStatus,
+  resolveHermesHookStatusDir,
+  type HermesHookStatusState,
+} from "./hermes-hook-status";
 
 const SEARCH_DECORATIONS = {
   matchBackground: "#ffff0050",
@@ -100,8 +106,9 @@ export interface TerminalSession {
   hermesBusy: boolean;
   /** True after Hermes finishes in a background tab until the user views it. */
   hermesUnread: boolean;
-  /** Small rolling buffer for Hermes OSC markers that may arrive split across PTY chunks. */
-  hermesBusyMarkerBuffer: string;
+  /** Per-tab file bridge used by the Hermes hook plugin status experiment. */
+  hermesHookStatusPath: string;
+  hermesHookStatus: HermesHookStatusState;
   autocomplete: WikiLinkAutocomplete | null;
   /** Floating label shown while a file is dragged over the terminal. */
   dragLabel: HTMLElement;
@@ -327,6 +334,7 @@ export class TerminalTabManager {
   private contextSubmitSequence = 0;
   private dragSrcId: string | null = null;
   private readonly app: App;
+  private readonly hermesHookStatusDir: string;
 
   constructor(opts: TabManagerOptions) {
     this.app = opts.app;
@@ -344,6 +352,7 @@ export class TerminalTabManager {
     this.onSessionClose = opts.onSessionClose;
     this.contextTracker = opts.contextTracker;
     this.saveSettings = opts.saveSettings;
+    this.hermesHookStatusDir = resolveHermesHookStatusDir(this.app);
     this.renderContextHeader();
   }
 
@@ -530,28 +539,8 @@ export class TerminalTabManager {
     session.parserDisposables.push({ dispose: cleanup });
   }
 
-  /**
-   * Hermes CLI emits OSC 777;hermes:busy=1 while a turn is running and
-   * OSC 777;hermes:busy=0 when it returns to idle / waits for user input.
-   * Keep this UI-only: if the escape sequence is absent, tabs behave normally.
-   */
-  private setupHermesBusyIndicator(session: TerminalSession, terminal: Terminal): void {
-    const disposable = terminal.parser.registerOscHandler(777, (data) => {
-      if (this.applyHermesBusyPayload(session, data)) {
-        return true;
-      }
-      return false;
-    });
-    session.parserDisposables.push(disposable);
-  }
-
-  private applyHermesBusyPayload(session: TerminalSession, data: string): boolean {
-    const match = data.match(/hermes:busy=([01])/);
-    if (!match) {
-      return false;
-    }
-    const busy = match[1] === "1";
-    if (session.hermesBusy !== busy || session.hermesBusyMarkerBuffer) {
+  private setHermesBusy(session: TerminalSession, busy: boolean): void {
+    if (session.hermesBusy !== busy) {
       const wasBusy = session.hermesBusy;
       session.hermesBusy = busy;
       if (busy) {
@@ -559,21 +548,36 @@ export class TerminalTabManager {
       } else if (wasBusy && session.id !== this.activeId) {
         session.hermesUnread = true;
       }
-      session.hermesBusyMarkerBuffer = "";
       this.renderTabBar();
     }
-    return true;
   }
 
-  private consumeHermesBusyMarkers(session: TerminalSession, data: string): string {
-    const markerState = { buffer: session.hermesBusyMarkerBuffer };
-    const result = consumeHermesBusyMarkers(
-      markerState,
-      data,
-      (busy) => this.applyHermesBusyPayload(session, busy ? "hermes:busy=1" : "hermes:busy=0"),
-    );
-    session.hermesBusyMarkerBuffer = markerState.buffer;
-    return result.cleanData;
+  private applyHermesHookStatus(session: TerminalSession): void {
+    const busy = readHermesHookBusyStatus(session.hermesHookStatusPath, session.id);
+    if (busy === null) return;
+    this.setHermesBusy(session, busy);
+  }
+
+  private setupHermesHookStatusWatcher(session: TerminalSession): void {
+    if (!session.hermesHookStatusPath) return;
+    const poll = () => this.applyHermesHookStatus(session);
+    session.hermesHookStatus.pollTimer = window.setInterval(poll, 1000);
+    try {
+      const fs = window.require("fs") as {
+        mkdirSync: (path: string, opts?: { recursive?: boolean }) => void;
+        watch: (path: string, cb: (eventType: string, filename: string | Buffer | null) => void) => { close: () => void };
+      };
+      if (this.hermesHookStatusDir) {
+        fs.mkdirSync(this.hermesHookStatusDir, { recursive: true });
+        const watchedFile = `${session.id}.json`;
+        session.hermesHookStatus.watchHandle = fs.watch(this.hermesHookStatusDir, (_eventType, filename) => {
+          if (!filename || filename.toString() === watchedFile) poll();
+        });
+      }
+    } catch {
+      // Polling still handles environments where fs.watch is unavailable/flaky.
+    }
+    poll();
   }
 
   private buildXterm(
@@ -903,6 +907,9 @@ export class TerminalTabManager {
         pty.spawn(this.settings.shellPath, sessionCwd, cols, rows, {
           OBSIDIAN_CONTEXT_BRIDGE_PATH: resolveObsidianContextBridgePath(this.app),
           OBSIDIAN_HERMES_CONSOLE: "1",
+          OBSIDIAN_HERMES_TAB_ID: session.id,
+          OBSIDIAN_HERMES_STATUS_PATH: session.hermesHookStatusPath,
+          OBSIDIAN_HERMES_STATUS_DIR: this.hermesHookStatusDir,
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : "unknown error";
@@ -911,15 +918,10 @@ export class TerminalTabManager {
         return;
       }
 
-      // Wire data: PTY -> xterm. Strip Hermes OSC busy markers here as a
-      // fallback too: some xterm/Electron paths render OSC-ST visibly instead
-      // of invoking registerOscHandler for custom OSC codes.
+      // Wire data: PTY -> xterm. Hermes busy/idle state is handled by the
+      // hook status bridge, not by terminal escape sequences.
       pty.onData((data: string) => {
-        const cleanData = this.consumeHermesBusyMarkers(session, data);
-        terminal.write(cleanData);
-        if (session.hermesBusy && /(?:^|[\r\n])(?:[❯›❱>›]\s?|[$#%>]\s)$/.test(cleanData)) {
-          this.applyHermesBusyPayload(session, "hermes:busy=0");
-        }
+        terminal.write(data);
       });
 
       // Wire data: xterm -> PTY. Autocomplete may consume data (returns true) to
@@ -991,7 +993,8 @@ export class TerminalTabManager {
       pinned: opts?.pinned ?? false,
       hermesBusy: false,
       hermesUnread: false,
-      hermesBusyMarkerBuffer: "",
+      hermesHookStatusPath: hermesHookStatusFilePath(this.hermesHookStatusDir, id),
+      hermesHookStatus: createHermesHookStatusState(),
       autocomplete,
       dragLabel,
       searchAddon,
@@ -1001,7 +1004,7 @@ export class TerminalTabManager {
       creationOpts: opts,
     };
     session.parserDisposables.push(resultsDisposable);
-    this.setupHermesBusyIndicator(session, terminal);
+    this.setupHermesHookStatusWatcher(session);
 
     terminal.onSelectionChange(() => {
       if (!this.settings.copyOnSelect) return;
@@ -1056,6 +1059,16 @@ export class TerminalTabManager {
 
   private teardownSession(session: TerminalSession): void {
     session.autocomplete?.dispose();
+    if (session.hermesHookStatus.pollTimer !== null) {
+      window.clearInterval(session.hermesHookStatus.pollTimer);
+      session.hermesHookStatus.pollTimer = null;
+    }
+    try {
+      session.hermesHookStatus.watchHandle?.close();
+    } catch {
+      // ignore
+    }
+    session.hermesHookStatus.watchHandle = null;
     for (const d of session.parserDisposables) d.dispose();
     session.parserDisposables = [];
     session.pty.kill();
