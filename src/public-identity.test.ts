@@ -19,7 +19,9 @@ describe("public plugin identity", () => {
 
     expect(manifest.id).toBe("hermes-console");
     expect(manifest.name).toBe("Hermes Console");
-    expect(manifest.description).toContain("Hermes Agent inside Obsidian");
+    expect(manifest.description).toContain("Hermes Agent");
+    expect(manifest.description).toContain("embedded console");
+    expect(manifest.description).not.toMatch(/\bObsidian\b/);
     expect(manifest.description).not.toMatch(/^Hermes Console\b/);
     expect(manifest.description).not.toContain("Hermes Console for Obsidian Plan");
   });
