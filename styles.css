@@ -803,6 +803,7 @@ body.theme-light .terminal-view-container {
 }
 
 .terminal-session .xterm {
+  height: 100%;
   padding: 14px 16px;
 }
 
@@ -815,11 +816,6 @@ body.theme-light .terminal-view-container {
 }
 .terminal-session-hidden {
   display: none;
-}
-
-/* Constrain xterm to container */
-.terminal-session .xterm {
-  height: 100%;
 }
 
 /* Scrollbar styling — display:block overrides Obsidian's global scrollbar hide */
