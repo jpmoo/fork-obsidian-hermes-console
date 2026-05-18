@@ -11,6 +11,7 @@ import { isObsidianDark } from "./themes";
 import { mixHex } from "./color-utils";
 import { findTabColor, DEFAULT_TINT_STRENGTH, MAX_TINT_STRENGTH } from "./tab-colors";
 import { ThemeRegistry } from "./theme-registry";
+import { consumeHermesBusyMarkers } from "./hermes-busy-markers";
 import type { TerminalPluginSettings, NotificationSound } from "./settings";
 import type { BinaryManager } from "./binary-manager";
 import type { SavedTab } from "./session-state";
@@ -565,38 +566,14 @@ export class TerminalTabManager {
   }
 
   private consumeHermesBusyMarkers(session: TerminalSession, data: string): string {
-    const combined = session.hermesBusyMarkerBuffer + data;
-    session.hermesBusyMarkerBuffer = "";
-    const markerPattern = /(?:\x1b\]777;|\?\]?777;)(hermes:busy=[01])(?:\x07|\x1b\\|\?\\|\\)?/g;
-    let output = "";
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = markerPattern.exec(combined)) !== null) {
-      output += combined.slice(lastIndex, match.index);
-      this.applyHermesBusyPayload(session, match[1]);
-      lastIndex = markerPattern.lastIndex;
-    }
-    output += combined.slice(lastIndex);
-
-    const markerPrefixes = [
-      "\x1b]777;hermes:busy=0",
-      "\x1b]777;hermes:busy=1",
-      "?]777;hermes:busy=0",
-      "?]777;hermes:busy=1",
-      "?777;hermes:busy=0",
-      "?777;hermes:busy=1",
-    ];
-    for (let start = Math.max(0, output.length - 24); start < output.length; start++) {
-      const suffix = output.slice(start);
-      if (suffix && markerPrefixes.some((prefix) => prefix.startsWith(suffix))) {
-        session.hermesBusyMarkerBuffer = suffix;
-        output = output.slice(0, start);
-        break;
-      }
-    }
-
-    return output;
+    const markerState = { buffer: session.hermesBusyMarkerBuffer };
+    const result = consumeHermesBusyMarkers(
+      markerState,
+      data,
+      (busy) => this.applyHermesBusyPayload(session, busy ? "hermes:busy=1" : "hermes:busy=0"),
+    );
+    session.hermesBusyMarkerBuffer = markerState.buffer;
+    return result.cleanData;
   }
 
   private buildXterm(
