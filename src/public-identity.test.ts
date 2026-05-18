@@ -23,7 +23,8 @@ describe("public plugin identity", () => {
     expect(manifest.author).toBe("Danny Shmueli");
     expect(manifest.author).not.toMatch(/LeanProductivity|fork/i);
     expect(manifest.description).toContain("Hermes Agent");
-    expect(manifest.description).toContain("embedded console");
+    expect(manifest.description).toContain("tabbed terminal");
+    expect(manifest.description).toContain("background status alerts");
     expect(manifest.description).not.toMatch(/\bObsidian\b/);
     expect(manifest.description).not.toMatch(/^Hermes Console\b/);
     expect(manifest.description).not.toContain("Hermes Console for Obsidian Plan");

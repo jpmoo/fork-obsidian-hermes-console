@@ -11,7 +11,7 @@
 
 <img width="1060" height="986" alt="Screenshot 2026-05-17 at 23 38 03" src="https://github.com/user-attachments/assets/afe42505-7572-47f6-9f4a-024091886321" />
 
-Hermes Console brings the [Hermes Agent](https://github.com/NousResearch/hermes-agent) workflow into [Obsidian](https://obsidian.md). It gives your vault a real embedded terminal, launches `hermes` by default when the Hermes CLI is installed, and can hand selected note context or cursor context to the Hermes turn without copy-paste.
+Launch Hermes from your vault, send selected note text or cursor context through a local JSON bridge, and keep working while Hermes runs. Hermes Console shows busy state per tab and can notify you when a background Hermes turn finishes, without switching to an external terminal.
 
 <p align="center">
   <img src="assets/readme/hermes-console-context-bridge.png" alt="Hermes Console context bridge diagram: Obsidian selection flows through context.json and obsidian-context-bridge into Hermes context" width="900">
@@ -25,7 +25,7 @@ Already use Hermes? Install the Hermes-side bridge once:
 hermes plugins install dannyshmueli/obsidian-hermes-console --enable
 ```
 
-Then install Hermes Console with BRAT: add `dannyshmueli/obsidian-hermes-console`, enable it, click **Download binaries**, open the console, and press Enter on your next Hermes prompt. BRAT installs the Obsidian plugin only; the command above installs the Hermes plugin that makes selected-note context work. The Hermes-side plugin appears as `obsidian-context-bridge`; that is expected and no extra Obsidian plugin is needed.
+Then install Hermes Console from **Settings > Community Plugins**: search for **Hermes Console**, install it, enable it, click **Download binaries**, open the console, and press Enter on your next Hermes prompt. Community Plugins installs the Obsidian plugin only; the command above installs the Hermes plugin that makes selected-note context work. The Hermes-side plugin appears as `obsidian-context-bridge`; that is expected and no extra Obsidian plugin is needed.
 
 Full install instructions: https://github.com/dannyshmueli/obsidian-hermes-console#installation
 
@@ -41,23 +41,22 @@ Hermes Console is built on a fork of Lean Terminal. We preserve upstream credit 
    hermes plugins install dannyshmueli/obsidian-hermes-console --enable
    ```
 
-2. Install the [BRAT](https://github.com/TfTHacker/obsidian42-brat) Obsidian plugin.
-3. In Obsidian, open **Settings > BRAT > Add Beta Plugin**.
-4. Paste `dannyshmueli/obsidian-hermes-console`.
-5. Enable **Hermes Console** in **Settings > Community Plugins**.
-6. Open **Settings > Hermes Console > Download binaries** and click **Download**.
-7. Open Hermes Console from the ribbon icon or command palette.
-8. Highlight text in any note, type a prompt in Hermes Console, and press Enter.
+2. In Obsidian, open **Settings > Community Plugins**.
+3. Search for **Hermes Console** and click **Install**.
+4. Enable **Hermes Console**.
+5. Open **Settings > Hermes Console > Download binaries** and click **Download**.
+6. Open Hermes Console from the ribbon icon or command palette.
+7. Highlight text in any note, type a prompt in Hermes Console, and press Enter.
 <img width="416" height="291" alt="image" src="https://github.com/user-attachments/assets/eeb38e1d-0f1a-4200-b38a-9eaf065e463b" />
 
-Hermes Console does not install Hermes itself. BRAT also does not install Hermes plugins. If `hermes` is already available in your shell and `obsidian-context-bridge` is enabled, new console tabs start Hermes automatically and selected-note context is attached on submit.
+Hermes Console does not install Hermes itself, and Community Plugins does not install Hermes plugins. If `hermes` is already available in your shell and `obsidian-context-bridge` is enabled, new console tabs start Hermes automatically and selected-note context is attached on submit.
 
 ### If you are new to Hermes
 
 1. Install Hermes Agent from https://github.com/NousResearch/hermes-agent.
 2. Run `hermes setup` in your normal terminal and confirm `hermes` starts.
 3. Run `hermes plugins install dannyshmueli/obsidian-hermes-console --enable` to install the Hermes-side bridge.
-4. Install Hermes Console with the BRAT steps above.
+4. Install Hermes Console from **Settings > Community Plugins**.
 5. Open Hermes Console inside Obsidian and start working from your notes.
 
 ## Architecture: one Obsidian plugin, one Hermes plugin, one bridge file
@@ -127,7 +126,7 @@ End-to-end selected-text/cursor behavior requires all three pieces: Obsidian cap
 
 - Session persistence: tab names, colors, working directories, and scrollback are restored when Obsidian reopens
 - Rescue recently closed tabs from the command palette (ring buffer of the last 10 sessions)
-- Notification sounds when background tab commands finish (4 sound types, adjustable volume)
+- Busy state per Hermes tab, unread status for background turns, and optional Obsidian notices when background Hermes turns finish
 - Restore recently closed tabs and live Hermes CLI sessions from the command palette
 - Optional Obsidian-to-Hermes context bridge for selected text or cursor context
 
@@ -141,15 +140,15 @@ End-to-end selected-text/cursor behavior requires all three pieces: Obsidian cap
 
 ## Installation
 
-Fast path while Community Plugins review is pending: install the Hermes bridge plugin with `hermes plugins install dannyshmueli/obsidian-hermes-console --enable`, then install Hermes Console with BRAT, add `dannyshmueli/obsidian-hermes-console`, enable Hermes Console, and click **Settings > Hermes Console > Download binaries**.
+Fast path: install Hermes Console from **Settings > Community Plugins**, then click **Settings > Hermes Console > Download binaries**. If you want selected-note/cursor context in Hermes, also install the Hermes-side bridge plugin with `hermes plugins install dannyshmueli/obsidian-hermes-console --enable`.
 
 The plugin needs native `node-pty` binaries after install. Community Plugins and BRAT users download them from plugin settings. Manual/local development installs them with `npm install` and copies them into the vault plugin directory with `install.mjs`.
 
 Hermes Console does not install the Hermes CLI or auto-enable Hermes plugins. Install Hermes separately if you want the default `hermes` startup command to work. Install `obsidian-context-bridge` with `hermes plugins install dannyshmueli/obsidian-hermes-console --enable` if you want selected-note/cursor context to reach Hermes.
 
-### Community Plugins (published releases)
+### Community Plugins
 
-Use this path when the Hermes Console plugin is available in Obsidian's Community Plugins directory.
+Recommended for most users.
 
 1. Open **Settings > Community Plugins**
 2. Search for "Hermes Console"
@@ -162,7 +161,7 @@ The upstream community plugin remains available as [Lean Terminal](https://commu
 
 ### BRAT beta
 
-Use this path for beta builds or if the Hermes Console plugin is not yet available in Community Plugins.
+Use this path only for beta builds before they reach Community Plugins.
 
 1. If you want selected-note context in Hermes, install the Hermes-side plugin first:
 
