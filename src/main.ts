@@ -1,7 +1,12 @@
 import { FileSystemAdapter, Plugin, TFolder, WorkspaceLeaf, addIcon, setIcon } from "obsidian";
 import { VIEW_TYPE_TERMINAL } from "./constants";
 import { TerminalView } from "./terminal-view";
-import { TerminalSettingTab, DEFAULT_SETTINGS, type TerminalPluginSettings } from "./settings";
+import {
+  TerminalSettingTab,
+  DEFAULT_SETTINGS,
+  normalizeTerminalPluginSettings,
+  type TerminalPluginSettings,
+} from "./settings";
 import { BinaryManager } from "./binary-manager";
 import { ThemeRegistry } from "./theme-registry";
 import { openRestoreSessionPicker } from "./recent-sessions";
@@ -392,7 +397,8 @@ export default class TerminalPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<TerminalPluginSettings>);
+    const { settings, migratedLegacySettings } = normalizeTerminalPluginSettings(await this.loadData());
+    this.settings = settings;
     // Migrate the old generic Lucide icon to the Hermes-specific caduceus/wing
     // mark, while preserving any custom icon name the user entered manually.
     if (this.settings.ribbonIcon === "bot-message-square") {
@@ -404,6 +410,9 @@ export default class TerminalPlugin extends Plugin {
     // push/filter mutation would leak into the module-level default.
     // Deep-clone here so the default array stays immutable.
     this.settings.tabColors = this.settings.tabColors.map((c) => ({ ...c }));
+    if (migratedLegacySettings) {
+      await this.saveSettings();
+    }
   }
 
   async saveSettings(): Promise<void> {

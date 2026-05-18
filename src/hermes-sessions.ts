@@ -47,7 +47,7 @@ export function parseHermesSessionsList(output: string): HermesSessionEntry[] {
 }
 
 export async function resumeHermesSession(plugin: TerminalPlugin, sessionId: string): Promise<void> {
-  if (!plugin.settings.enableClaudeIntegration) {
+  if (!plugin.settings.hermesSessionIntegration) {
     new Notice("Hermes session integration is disabled in settings.");
     return;
   }

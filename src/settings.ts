@@ -42,9 +42,8 @@ export interface TerminalPluginSettings {
   recentSessionsMax: number;
   recentSessions: RecentSession[];
   sendObsidianContextToHermes: boolean;
-  // Hermes session integration — legacy setting names kept for data compatibility.
-  enableClaudeIntegration: boolean;
-  claudeSessionsMax: number;
+  hermesSessionIntegration: boolean;
+  hermesSessionsMax: number;
   tabColorTintsBackground: boolean;
   tabColors: TabColorDef[];
   tabBarPosition: "top" | "left" | "right";
@@ -75,14 +74,58 @@ export const DEFAULT_SETTINGS: TerminalPluginSettings = {
   recentSessionsMax: 10,
   recentSessions: [],
   sendObsidianContextToHermes: true,
-  enableClaudeIntegration: true,
-  claudeSessionsMax: 25,
+  hermesSessionIntegration: true,
+  hermesSessionsMax: 25,
   tabColorTintsBackground: true,
   tabColors: DEFAULT_TAB_COLORS.map((c) => ({ ...c })),
   tabBarPosition: "top",
   wikiLinkAutocomplete: false,
   wikiLinkInsertMode: "wikilink",
 };
+
+type LegacyTerminalPluginSettings = {
+  enableClaudeIntegration?: boolean;
+  claudeSessionsMax?: number;
+};
+
+export type SettingsMigrationResult = {
+  settings: TerminalPluginSettings;
+  migratedLegacySettings: boolean;
+};
+
+export function normalizeTerminalPluginSettings(stored: unknown): SettingsMigrationResult {
+  const source = isRecord(stored) ? { ...stored } : {};
+  const migrated = source as Partial<TerminalPluginSettings> & LegacyTerminalPluginSettings;
+  const migratedLegacySettings =
+    Object.prototype.hasOwnProperty.call(migrated, "enableClaudeIntegration") ||
+    Object.prototype.hasOwnProperty.call(migrated, "claudeSessionsMax");
+
+  if (
+    typeof migrated.hermesSessionIntegration !== "boolean" &&
+    typeof migrated.enableClaudeIntegration === "boolean"
+  ) {
+    migrated.hermesSessionIntegration = migrated.enableClaudeIntegration;
+  }
+
+  if (
+    typeof migrated.hermesSessionsMax !== "number" &&
+    typeof migrated.claudeSessionsMax === "number"
+  ) {
+    migrated.hermesSessionsMax = migrated.claudeSessionsMax;
+  }
+
+  delete migrated.enableClaudeIntegration;
+  delete migrated.claudeSessionsMax;
+
+  return {
+    settings: Object.assign({}, DEFAULT_SETTINGS, migrated),
+    migratedLegacySettings,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
 
 export class TerminalSettingTab extends PluginSettingTab {
   plugin: TerminalPlugin;
@@ -738,14 +781,14 @@ export class TerminalSettingTab extends PluginSettingTab {
         "Show live Hermes CLI sessions when you run Obsidian's command palette action \"Restore console or Hermes session\". Pick a Hermes session there to open a fresh terminal that runs hermes --resume. No terminal scrollback is replayed and no session note is generated."
       )
       .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.enableClaudeIntegration).onChange(async (value) => {
-          this.plugin.settings.enableClaudeIntegration = value;
+        toggle.setValue(this.plugin.settings.hermesSessionIntegration).onChange(async (value) => {
+          this.plugin.settings.hermesSessionIntegration = value;
           await this.plugin.saveSettings();
           this.display();
         })
       );
 
-    if (this.plugin.settings.enableClaudeIntegration) {
+    if (this.plugin.settings.hermesSessionIntegration) {
       new Setting(containerEl)
         .setName("Hermes sessions to show")
         .setDesc(
@@ -753,11 +796,11 @@ export class TerminalSettingTab extends PluginSettingTab {
         )
         .addText((text) =>
           text
-            .setValue(String(this.plugin.settings.claudeSessionsMax))
+            .setValue(String(this.plugin.settings.hermesSessionsMax))
             .onChange(async (value) => {
               const num = parseInt(value, 10);
               if (!isNaN(num) && num > 0) {
-                this.plugin.settings.claudeSessionsMax = num;
+                this.plugin.settings.hermesSessionsMax = num;
                 await this.plugin.saveSettings();
               }
             })

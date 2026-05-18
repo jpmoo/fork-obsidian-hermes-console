@@ -44,13 +44,13 @@ export async function openRecentTerminalSessionPicker(plugin: TerminalPlugin): P
  * with `hermes --resume <session-id>`. It does not replay terminal scrollback.
  */
 export async function openHermesSessionPicker(plugin: TerminalPlugin): Promise<void> {
-  if (!plugin.settings.enableClaudeIntegration) {
+  if (!plugin.settings.hermesSessionIntegration) {
     new Notice("Hermes session integration is disabled in settings.");
     return;
   }
 
   let hermesEntries: HermesSessionEntry[] = [];
-  hermesEntries = await scanHermesSessions(plugin.settings.claudeSessionsMax);
+  hermesEntries = await scanHermesSessions(plugin.settings.hermesSessionsMax);
 
   if (hermesEntries.length === 0) {
     new Notice("No recent Hermes sessions to restore.");
@@ -69,8 +69,8 @@ export type RestoreSessionItem =
  * still dispatches to the correct backend action.
  */
 export async function openRestoreSessionPicker(plugin: TerminalPlugin): Promise<void> {
-  const hermesEntries = plugin.settings.enableClaudeIntegration
-    ? await scanHermesSessions(plugin.settings.claudeSessionsMax)
+  const hermesEntries = plugin.settings.hermesSessionIntegration
+    ? await scanHermesSessions(plugin.settings.hermesSessionsMax)
     : [];
   const items = createRestoreSessionItems(hermesEntries, plugin.settings.recentSessions);
 

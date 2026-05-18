@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "./settings";
+import { DEFAULT_SETTINGS, normalizeTerminalPluginSettings } from "./settings";
 import { HERMES_ICON_ID } from "./hermes-icon";
 import { shouldRunStartupCommandForTab } from "./startup-command";
 
@@ -17,8 +17,34 @@ describe("DEFAULT_SETTINGS", () => {
   });
 
   it("defaults Hermes session integration on", () => {
-    expect(DEFAULT_SETTINGS.enableClaudeIntegration).toBe(true);
-    expect(DEFAULT_SETTINGS.claudeSessionsMax).toBeGreaterThan(0);
+    expect(DEFAULT_SETTINGS.hermesSessionIntegration).toBe(true);
+    expect(DEFAULT_SETTINGS.hermesSessionsMax).toBeGreaterThan(0);
+  });
+
+  it("migrates legacy Claude-named session settings to Hermes names", () => {
+    const { settings, migratedLegacySettings } = normalizeTerminalPluginSettings({
+      enableClaudeIntegration: false,
+      claudeSessionsMax: 7,
+    });
+
+    expect(migratedLegacySettings).toBe(true);
+    expect(settings.hermesSessionIntegration).toBe(false);
+    expect(settings.hermesSessionsMax).toBe(7);
+    expect(settings).not.toHaveProperty("enableClaudeIntegration");
+    expect(settings).not.toHaveProperty("claudeSessionsMax");
+  });
+
+  it("keeps Hermes-named settings when both current and legacy keys exist", () => {
+    const { settings, migratedLegacySettings } = normalizeTerminalPluginSettings({
+      hermesSessionIntegration: true,
+      hermesSessionsMax: 9,
+      enableClaudeIntegration: false,
+      claudeSessionsMax: 3,
+    });
+
+    expect(migratedLegacySettings).toBe(true);
+    expect(settings.hermesSessionIntegration).toBe(true);
+    expect(settings.hermesSessionsMax).toBe(9);
   });
 
   it("opens new terminals in the right sidebar by default", () => {
