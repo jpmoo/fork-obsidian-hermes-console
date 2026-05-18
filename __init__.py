@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from hermes.obsidian_status_bridge import (
+from .hermes.obsidian_status_bridge import (
     _on_session_end as _status_on_session_end,
     _post_llm_call as _status_post_llm_call,
     _pre_llm_call as _status_pre_llm_call,

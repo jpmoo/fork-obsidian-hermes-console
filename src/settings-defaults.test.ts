@@ -24,6 +24,10 @@ describe("DEFAULT_SETTINGS", () => {
   it("defaults Obsidian context sharing off until the user enables it", () => {
     expect(DEFAULT_SETTINGS.sendObsidianContextToHermes).toBe(false);
   });
+
+  it("notifies on background Hermes completion by default", () => {
+    expect(DEFAULT_SETTINGS.notifyOnHermesIdleInBackground).toBe(true);
+  });
 });
 
 describe("startup command gating", () => {

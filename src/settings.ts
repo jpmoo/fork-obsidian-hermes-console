@@ -33,7 +33,8 @@ export interface TerminalPluginSettings {
   scrollback: number;
   ribbonIcon: string;
   defaultLocation: "bottom" | "right" | "tab" | "split-right";
-  notifyOnCompletion: boolean;
+  /** Obsidian Notice when Hermes finishes in a non-active console tab. */
+  notifyOnHermesIdleInBackground: boolean;
   notificationSound: NotificationSound;
   notificationVolume: number;
   searchShortcut: string;
@@ -66,7 +67,7 @@ export const DEFAULT_SETTINGS: TerminalPluginSettings = {
   scrollback: 500000,
   ribbonIcon: HERMES_ICON_ID,
   defaultLocation: "bottom",
-  notifyOnCompletion: false,
+  notifyOnHermesIdleInBackground: true,
   notificationSound: "beep",
   notificationVolume: 50,
   searchShortcut: "Ctrl+Alt+F",
@@ -672,18 +673,18 @@ export class TerminalSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Notifications").setHeading();
 
     new Setting(containerEl)
-      .setName("Notify on command completion")
-      .setDesc("Play a sound and show a notice when a command finishes in a background tab")
+      .setName("Notify when background Hermes finishes")
+      .setDesc("Show an Obsidian notice when a Hermes turn becomes idle in a non-active console tab.")
       .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.notifyOnCompletion).onChange(async (value) => {
-          this.plugin.settings.notifyOnCompletion = value;
+        toggle.setValue(this.plugin.settings.notifyOnHermesIdleInBackground).onChange(async (value) => {
+          this.plugin.settings.notifyOnHermesIdleInBackground = value;
           await this.plugin.saveSettings();
         })
       );
 
     new Setting(containerEl)
       .setName("Notification sound")
-      .setDesc("Sound to play when a background command finishes")
+      .setDesc("Sound to play when a background Hermes turn finishes")
       .addDropdown((dropdown) => {
         dropdown.addOption("beep", "Beep");
         dropdown.addOption("chime", "Chime");

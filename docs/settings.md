@@ -12,7 +12,7 @@
 | Scrollback | 500000 | Number of lines kept in scroll history |
 | Background color | Theme default | Override the theme background with any CSS color (hex, RGB, etc.) |
 | Default location | Bottom | Where new terminal panels open (Bottom or Right) |
-| Notify on completion | Off | Sound + notice when a background tab command finishes |
+| Notify when background Hermes finishes | On | Sound + Obsidian notice when a Hermes turn becomes idle in a background tab |
 | Notification sound | Beep | Choose from Beep, Chime, Ping, or Pop |
 | Notification volume | 50 | Volume for notification sounds (0–100) |
 | Persist terminal buffer | On | Save scrollback history across restarts. Disable to reduce workspace.json size |

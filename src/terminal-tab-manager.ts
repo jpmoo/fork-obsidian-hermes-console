@@ -547,6 +547,7 @@ export class TerminalTabManager {
         session.hermesUnread = false;
       } else if (wasBusy && session.id !== this.activeId) {
         session.hermesUnread = true;
+        this.notifyHermesIdleInBackground(session);
       }
       this.renderTabBar();
     }
@@ -930,8 +931,7 @@ export class TerminalTabManager {
         if (!session.autocomplete?.handleData(data)) pty.write(data);
       });
 
-      pty.onExit((exitInfo) => {
-        this.notifyCompletion(session, exitInfo.exitCode);
+      pty.onExit(() => {
         this.forceCloseTab(session.id);
       });
 
@@ -1200,12 +1200,11 @@ export class TerminalTabManager {
     this.activeId = null;
   }
 
-  private notifyCompletion(session: TerminalSession, exitCode: number): void {
-    if (!this.settings.notifyOnCompletion) return;
+  private notifyHermesIdleInBackground(session: TerminalSession): void {
+    if (!this.settings.notifyOnHermesIdleInBackground) return;
 
-    const status = exitCode === 0 ? "done" : `exit ${exitCode}`;
     playNotificationSound(this.settings.notificationSound, this.settings.notificationVolume);
-    new Notice(`${session.name}: ${status}`);
+    new Notice(`${session.name}: Hermes is idle`);
   }
 
   private editTab(id: string, labelEl: HTMLElement): void {
