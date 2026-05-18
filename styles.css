@@ -265,14 +265,6 @@ body.theme-light .terminal-view-container {
   flex: 0 0 auto;
 }
 
-.terminal-shell-cwd {
-  min-width: max-content;
-  color: var(--text-muted);
-  font-family: var(--font-monospace);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-}
-
 .terminal-shell-settings-button {
   width: 42px;
   height: 42px;

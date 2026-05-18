@@ -10,11 +10,6 @@ import {
   shouldBlockTerminalViewClose,
 } from "./terminal-session-actions";
 
-function formatCwdHint(cwd: string): string {
-  const parts = cwd.split(/[\\/]/).filter(Boolean);
-  return parts[parts.length - 1] ?? cwd;
-}
-
 export class TerminalView extends ItemView {
   private plugin: TerminalPlugin;
   private tabManager: TerminalTabManager | null = null;
@@ -75,12 +70,6 @@ export class TerminalView extends ItemView {
     shellHeaderEl.createDiv({ cls: "terminal-shell-divider" });
 
     const contextHeaderEl = shellHeaderEl.createDiv({ cls: "terminal-context-header" });
-
-    const cwdHintEl = shellHeaderEl.createDiv({
-      cls: "terminal-shell-cwd",
-      text: `cwd ${formatCwdHint(cwd)}`,
-    });
-    cwdHintEl.title = cwd;
 
     const settingsButton = shellHeaderEl.createEl("button", {
       cls: "terminal-shell-settings-button",
