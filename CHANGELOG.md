@@ -2,6 +2,17 @@
 
 All notable changes to Hermes Console are documented here.
 
+## 1.1.13 - May 19, 2026
+
+### Security
+
+- Serialize selected Obsidian text in the Hermes Python bridge as `selected_text_json` with escaped angle brackets, matching the TypeScript bridge behavior and preventing Markdown fences or XML-like tags in selections from breaking the context boundary.
+- Add Python regression tests for both Hermes bridge entrypoints covering triple backticks, `</obsidian_context>`, and fake `<system>` tags while preserving exact raw text through `obsidian_context()`.
+
+### Improvements
+
+- Run Python bridge regression tests in CI.
+
 ## 1.1.0 - May 15, 2026
 
 ### New
