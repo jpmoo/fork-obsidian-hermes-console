@@ -4,7 +4,7 @@ Obsidian desktop plugin providing an embedded PTY terminal panel using xterm.js 
 
 ## Stack
 
-- TypeScript 5.8, Obsidian Plugin API (1.5.0+)
+- TypeScript 5.8, Obsidian Plugin API (1.7.2+)
 - xterm.js 5.5 (terminal rendering) + node-pty 1.0 (pseudo-terminal)
 - esbuild (bundler), no test framework
 

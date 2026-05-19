@@ -1,7 +1,7 @@
 # Hermes Console
 
 [![Release](https://img.shields.io/github/release/dannyshmueli/obsidian-hermes-console?logo=obsidian&logoColor=A991D4&style=flat-square&labelColor=000000&color=25D0F7)](https://github.com/dannyshmueli/obsidian-hermes-console/releases)
-[![Obsidian](https://img.shields.io/badge/Obsidian-v1.5.0+-A991D4?style=flat-square&labelColor=000000)](https://obsidian.md)
+[![Obsidian](https://img.shields.io/badge/Obsidian-v1.7.2+-A991D4?style=flat-square&labelColor=000000)](https://obsidian.md)
 [![Issues](https://img.shields.io/github/issues/dannyshmueli/obsidian-hermes-console?logo=obsidian&logoColor=A991D4&style=flat-square&labelColor=000000&color=FC3634)](https://github.com/dannyshmueli/obsidian-hermes-console/issues)
 [![Closed](https://img.shields.io/github/issues-closed/dannyshmueli/obsidian-hermes-console?logo=obsidian&logoColor=A991D4&style=flat-square&labelColor=000000&color=18BC9C)](https://github.com/dannyshmueli/obsidian-hermes-console/issues?q=is%3Aissue+is%3Aclosed)
 [![Downloads](https://img.shields.io/github/downloads/dannyshmueli/obsidian-hermes-console/total?logo=obsidian&logoColor=A991D4&style=flat-square&labelColor=000000&color=25D0F7)](https://github.com/dannyshmueli/obsidian-hermes-console/releases)
@@ -83,7 +83,7 @@ So: **this is not two Obsidian plugins.** It is one Obsidian plugin plus one Her
 
 End-to-end selected-text/cursor behavior requires all three pieces: Obsidian capture, bridge file write, and the `obsidian-context-bridge` Hermes plugin loading in the integrated Hermes process. Busy/idle tab status uses the same Hermes plugin plus a per-tab status file under `.obsidian/hermes/runtime/`.
 
-**Desktop only.** Requires Obsidian 1.5.0+.
+**Desktop only.** Requires Obsidian 1.7.2+.
 
 ## Features
 
