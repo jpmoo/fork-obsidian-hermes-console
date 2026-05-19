@@ -302,7 +302,7 @@ export class TerminalSettingTab extends PluginSettingTab {
   }
 
   private renderBinarySection(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Hermes Console binary").setHeading();
+    new Setting(containerEl).setName("Basic setup").setHeading();
 
     new Setting(containerEl)
       .setName(`Hermes Console v${this.plugin.manifest.version}`);
@@ -362,7 +362,7 @@ export class TerminalSettingTab extends PluginSettingTab {
   }
 
   private renderBehaviorSection(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Behavior").setHeading();
+    new Setting(containerEl).setName("Shell environment & behavior").setHeading();
 
     new Setting(containerEl)
       .setName("Shell path")
@@ -822,11 +822,11 @@ export class TerminalSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     this.renderBinarySection(containerEl);
+    this.renderHermesSessionsSection(containerEl);
+    this.renderNotificationsSection(containerEl);
     this.renderBehaviorSection(containerEl);
+    this.renderPersistenceSection(containerEl);
     this.renderAppearanceSection(containerEl);
     this.renderTabBarSection(containerEl);
-    this.renderNotificationsSection(containerEl);
-    this.renderPersistenceSection(containerEl);
-    this.renderHermesSessionsSection(containerEl);
   }
 }
