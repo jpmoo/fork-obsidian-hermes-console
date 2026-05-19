@@ -2,6 +2,14 @@
 
 All notable changes to Hermes Console are documented here.
 
+## 1.1.14 - May 19, 2026
+
+### Improvements
+
+- Reorder settings around first-run setup: Basic setup, Hermes session integration, Notifications, Shell environment & behavior, Session persistence, then Appearance and Tab colors.
+- Clarify tab color palette controls with edit-button wording and visible `Tint` labels beside tint-strength sliders.
+- Align edit and close actions to the right edge of vertical left/right terminal tabs.
+
 ## 1.1.13 - May 19, 2026
 
 ### Security
