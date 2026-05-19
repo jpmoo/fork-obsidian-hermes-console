@@ -498,6 +498,19 @@ body.theme-light .terminal-view-container {
 .terminal-view-container.terminal-tabs-left .terminal-tab,
 .terminal-view-container.terminal-tabs-right .terminal-tab {
   border-radius: 9px;
+  width: 100%;
+}
+
+.terminal-view-container.terminal-tabs-left .terminal-tab-label,
+.terminal-view-container.terminal-tabs-right .terminal-tab-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+}
+
+.terminal-view-container.terminal-tabs-left .terminal-tab-rename,
+.terminal-view-container.terminal-tabs-right .terminal-tab-rename {
+  margin-left: auto;
 }
 
 .terminal-tab:hover {
