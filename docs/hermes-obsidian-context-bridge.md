@@ -2,7 +2,7 @@
 
 Hermes Console uses one Obsidian plugin and one Hermes plugin, connected by local JSON files inside your vault.
 
-The Obsidian plugin is **Hermes Console**. It owns the terminal UI, tabs, PTY sessions, selected-note/cursor capture, and the busy/idle tab indicators.
+The Obsidian plugin is **Hermes Console**. It owns the terminal UI, tabs, PTY sessions, per-tab selected-note/cursor capture, and the busy/idle tab indicators.
 
 The Hermes plugin is **obsidian-context-bridge**. It appears in Hermes Plugins because it runs inside Hermes. It registers Hermes hooks, injects selected-note/cursor context before the LLM call, exposes the `obsidian_context()` tool for large selections, and writes per-tab busy/idle status for the Obsidian UI.
 
@@ -22,9 +22,9 @@ Community Plugins installs the Obsidian plugin assets only. It does not install 
    hermes plugins install dannyshmueli/obsidian-hermes-console --enable
    ```
 
-6. Open Hermes Console, select text or put your cursor in a note, type a prompt, and press Enter.
+6. Open Hermes Console, enable the **Send context to Hermes** header toggle for the terminal tab you want to use, select text or put your cursor in a note, type a prompt, and press Enter.
 
-New installs default **Send Obsidian context to Hermes** to on. Existing users keep their saved setting, so turn it on manually if you installed before this default changed.
+Note context sharing is opt-in per Hermes Console terminal tab. The tab header toggle defaults off after plugin reload or Obsidian restart, so enable it again for each terminal tab that should share note context. You can also run **Toggle note context for active Hermes Console tab** from the command palette and bind that command under Settings > Hotkeys.
 
 ## What users see in Hermes Plugins
 
@@ -69,9 +69,9 @@ Hermes Console writes the current attachment state to:
 <vault>/.obsidian/hermes/context.json
 ```
 
-Plain Enter writes a fresh marker before the PTY receives Enter.
+Plain Enter writes a fresh marker before the PTY receives Enter. If note context sharing is enabled for that terminal tab, Hermes Console sends the current selection first; if nothing is selected, it sends cursor/file context for the active Markdown note.
 
-When **Send Obsidian context to Hermes** is off, the marker has:
+When note context sharing is off for that terminal tab, the marker has:
 
 ```json
 {"attach":{"enabled":false},"context":null}
@@ -138,7 +138,7 @@ Hermes Console sets these environment variables automatically for terminal sessi
 ## Runtime behavior
 
 - Missing or unreadable context bridge file: no context injected; `obsidian_context()` returns null.
-- `attach.enabled=false`: no context injected; previously accepted context is cleared.
+- `attach.enabled=false`: no context injected; previously accepted context is cleared. This is the default after plugin reload or Obsidian restart until the user enables the tab's **Send context to Hermes** header toggle or runs **Toggle note context for active Hermes Console tab**.
 - Selection context: small selections are injected inline as serialized text.
 - Large selections: Hermes gets a preview and can call `obsidian_context()` for the full text.
 - Cursor context: Hermes gets file path, cursor position, current line, and nearby lines.
@@ -154,7 +154,7 @@ If Obsidian writes the bridge file but Hermes does not see context:
 2. Confirm the Hermes Plugins screen shows `obsidian-context-bridge` enabled.
 3. Confirm the terminal environment contains `OBSIDIAN_CONTEXT_BRIDGE_PATH`.
 4. Confirm `<vault>/.obsidian/hermes/context.json` updates when you press Enter.
-5. Confirm **Send Obsidian context to Hermes** is on.
+5. Confirm the **Send context to Hermes** header toggle is on for the active terminal tab, or run **Toggle note context for active Hermes Console tab** from the command palette.
 6. Restart Hermes Console after changing plugin settings or binaries.
 
 If the tab spinner or background-finished notice does not work:

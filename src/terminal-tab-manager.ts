@@ -40,6 +40,8 @@ import {
   resolveHermesHookStatusDir,
   type HermesHookStatusState,
 } from "./hermes-hook-status";
+import { TerminalNoteContextState } from "./terminal-note-context-state";
+import { getContextHeaderToggleState } from "./context-header-toggle-state";
 
 const SEARCH_DECORATIONS = {
   matchBackground: "#ffff0050",
@@ -309,7 +311,6 @@ export interface TabManagerOptions {
   requestSaveLayout?: () => void;
   onSessionClose?: (tab: SavedTab) => void;
   contextTracker?: ObsidianContextTracker;
-  saveSettings?: () => void | Promise<void>;
 }
 
 export class TerminalTabManager {
@@ -328,7 +329,7 @@ export class TerminalTabManager {
   private onSessionClose?: (tab: SavedTab) => void;
   private contextTracker?: ObsidianContextTracker;
   private contextHeaderEl?: HTMLElement;
-  private saveSettings?: () => void | Promise<void>;
+  private readonly noteContextState = new TerminalNoteContextState();
   /** Set true by any terminal write/resize; consumed by the view's periodic save timer. */
   private outputDirty = false;
   private sessionCounter = 0;
@@ -352,7 +353,6 @@ export class TerminalTabManager {
     this.requestSaveLayout = opts.requestSaveLayout;
     this.onSessionClose = opts.onSessionClose;
     this.contextTracker = opts.contextTracker;
-    this.saveSettings = opts.saveSettings;
     this.hermesHookStatusDir = resolveHermesHookStatusDir(this.app);
     this.renderContextHeader();
   }
@@ -381,6 +381,28 @@ export class TerminalTabManager {
 
   updateObsidianContextHeader(): void {
     this.renderContextHeader();
+  }
+
+  isNoteContextEnabled(sessionId: string | null | undefined): boolean {
+    return this.noteContextState.isEnabled(sessionId);
+  }
+
+  isActiveNoteContextEnabled(): boolean {
+    return this.noteContextState.isEnabled(this.activeId);
+  }
+
+  setNoteContextEnabled(sessionId: string, enabled: boolean): void {
+    if (!this.sessions.some((s) => s.id === sessionId && !s.removedFromTabs)) return;
+    this.noteContextState.setEnabled(sessionId, enabled);
+    if (sessionId === this.activeId) this.renderContextHeader();
+  }
+
+  toggleActiveNoteContextEnabled(): boolean {
+    const session = this.getActiveSession();
+    if (!session) return false;
+    const enabled = this.noteContextState.toggle(session.id);
+    this.renderContextHeader();
+    return enabled;
   }
 
   private captureObsidianContextForSubmit(id: string, attachEnabled: boolean): void {
@@ -419,7 +441,7 @@ export class TerminalTabManager {
       submitSequence: this.contextSubmitSequence,
       terminalId: session.id,
       terminalTitle: session.name,
-      attachEnabled: this.settings.sendObsidianContextToHermes,
+      attachEnabled: this.noteContextState.isEnabled(session.id),
       now: new Date(),
     });
   }
@@ -428,39 +450,31 @@ export class TerminalTabManager {
     if (!this.contextHeaderEl) return;
 
     this.contextHeaderEl.empty();
+    const session = this.getActiveSession();
+    const enabled = this.isActiveNoteContextEnabled();
+    const toggleState = getContextHeaderToggleState(session?.name, enabled);
     const toggle = this.contextHeaderEl.createEl("button", {
       cls: "terminal-context-toggle",
     });
     toggle.type = "button";
-    toggle.setAttribute("aria-pressed", String(this.settings.sendObsidianContextToHermes));
-    toggle.toggleClass("terminal-context-toggle--on", this.settings.sendObsidianContextToHermes);
-    toggle.createSpan({ cls: "terminal-context-toggle-label", text: "Send selection" });
+    toggle.setAttribute("aria-pressed", toggleState.ariaPressed);
+    toggle.toggleClass("terminal-context-toggle--on", toggleState.className !== "");
+    toggle.createSpan({
+      cls: "terminal-context-toggle-label",
+      text: toggleState.label,
+    });
     const switchEl = toggle.createSpan({ cls: "terminal-context-switch" });
     switchEl.setAttribute("aria-hidden", "true");
     switchEl.createSpan({ cls: "terminal-context-switch-dot" });
     toggle.addEventListener("click", () => {
-      this.settings.sendObsidianContextToHermes = !this.settings.sendObsidianContextToHermes;
-      void this.saveSettings?.();
-      this.renderContextHeader();
+      this.toggleActiveNoteContextEnabled();
     });
 
     const previewPayload = this.buildObsidianContextPreviewPayload();
-    const context = previewPayload?.context ?? null;
-    if (this.settings.sendObsidianContextToHermes && context) {
-      const marker = this.contextHeaderEl.createSpan({
-        cls: `terminal-context-marker terminal-context-marker--${context.type}`,
-        attr: { "aria-label": context.type === "selection" ? "Obsidian selection attached" : "Obsidian cursor context attached" },
-      });
-      marker.createSpan({ cls: "terminal-context-marker-dot" });
-      marker.createSpan({
-        cls: "terminal-context-marker-label",
-        text: context.type === "selection" ? `${context.lineCount}L` : "CUR",
-      });
-    }
     this.contextHeaderEl.createSpan({
       cls: "terminal-context-status",
       text: describeObsidianContextForHeader(
-        this.settings.sendObsidianContextToHermes,
+        enabled,
         previewPayload,
       ),
     });
@@ -800,7 +814,7 @@ export class TerminalTabManager {
 
       const enterHandlingPlan = getTerminalEnterHandlingPlan(
         e,
-        this.settings.sendObsidianContextToHermes,
+        this.noteContextState.isEnabled(id),
       );
       if (enterHandlingPlan.length > 0) {
         for (const step of enterHandlingPlan) {
@@ -1059,6 +1073,7 @@ export class TerminalTabManager {
   }
 
   private teardownSession(session: TerminalSession): void {
+    this.noteContextState.remove(session.id);
     session.autocomplete?.dispose();
     if (session.hermesHookStatus.pollTimer !== null) {
       window.clearInterval(session.hermesHookStatus.pollTimer);
@@ -1199,6 +1214,7 @@ export class TerminalTabManager {
     }
     this.sessions = [];
     this.activeId = null;
+    this.noteContextState.clear();
   }
 
   private notifyHermesIdleInBackground(session: TerminalSession): void {
@@ -1257,6 +1273,7 @@ export class TerminalTabManager {
       session.name = newName;
       session.terminal.write(`${ESC}]0;${sanitizeOscTitle(newName)}\x07`);
       this.renderTabBar();
+      if (session.id === this.activeId) this.renderContextHeader();
       this.requestSaveLayout?.();
     };
 

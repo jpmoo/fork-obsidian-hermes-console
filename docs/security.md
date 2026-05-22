@@ -1,21 +1,25 @@
 # Security
 
-Hermes Console is a desktop Obsidian plugin that embeds a real PTY. It also includes a Hermes-side plugin for selected-note/cursor context and tab busy/idle status. This page documents the current security posture and the main boundaries to understand.
+Hermes Console is a desktop Obsidian plugin that embeds a real PTY. It also includes a Hermes-side plugin for opt-in selected-note/cursor context and tab busy/idle status. This page documents the current security posture and the main boundaries to understand.
 
 ## Local-only architecture
 
 Hermes Console does not run a network server for the context bridge.
 
-The Obsidian plugin writes local JSON files inside the active vault:
+The Obsidian plugin and the Hermes-side bridge use local JSON files inside the active vault:
 
 ```text
 <vault>/.obsidian/hermes/context.json
 <vault>/.obsidian/hermes/runtime/<tab-id>.json
 ```
 
+The context file carries note context only when note context sharing is enabled for a Hermes Console terminal tab; disabled tabs write a detach marker. The runtime file carries tab busy/idle status.
+
 The Hermes process launched by Hermes Console receives explicit environment variables such as `OBSIDIAN_CONTEXT_BRIDGE_PATH` and `OBSIDIAN_HERMES_STATUS_PATH`. The Hermes-side `obsidian-context-bridge` plugin reads/writes those local files through Hermes hooks.
 
 There is no socket, clipboard trick, browser extension, or external service in this bridge.
+
+Note context sharing is controlled per Hermes Console terminal tab by the **Send context to Hermes** header toggle, or by the command palette command **Toggle note context for active Hermes Console tab** for users who want a hotkey. It defaults off after plugin reload or Obsidian restart. Enabled tabs send the current selection first; if nothing is selected, they send cursor/file context for the active Markdown note.
 
 ## Native terminal boundary
 

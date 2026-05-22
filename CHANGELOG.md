@@ -2,6 +2,13 @@
 
 All notable changes to Hermes Console are documented here.
 
+## Unreleased
+
+### Improvements
+
+- Document note context sharing as opt-in per Hermes Console terminal tab: use the **Send context to Hermes** header toggle, or bind **Toggle note context for active Hermes Console tab** from the command palette; the per-tab toggle defaults off after plugin reload or Obsidian restart.
+- Clarify that enabled note context sharing sends the current selection first, or cursor/file context when nothing is selected, and remove stale global context-setting wording.
+
 ## 1.1.14 - May 19, 2026
 
 ### Improvements

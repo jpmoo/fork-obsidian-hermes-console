@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { App } from "obsidian";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   ObsidianContextBridgeConsumer,
   ObsidianContextTracker,
   buildObsidianContextBridgePayload,
   describeObsidianContextForHeader,
   formatObsidianContextForHermesTurn,
+  readObsidianContextBridgePayloadSync,
+  writeObsidianContextBridgePayloadSync,
 } from "./obsidian-context-bridge";
 
 type Pos = { line: number; ch: number };
@@ -93,6 +98,52 @@ describe("buildObsidianContextBridgePayload", () => {
     expect(payload.attach.enabled).toBe(false);
     expect(payload.context).toBeNull();
     expect(formatObsidianContextForHermesTurn(payload)).toBe("");
+  });
+
+  it("overwrites stale enabled bridge context with an explicit disabled null payload", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "obsidian-context-disabled-"));
+    const bridgePath = path.join(dir, "context.json");
+    try {
+      const app = makeApp({
+        file: mdFile("Private.md"),
+        editor: makeEditor(["secret"], {
+          selection: "secret",
+          from: { line: 0, ch: 0 },
+          to: { line: 0, ch: 6 },
+        }),
+      });
+      const tracker = new ObsidianContextTracker();
+      const enabledPayload = buildObsidianContextBridgePayload({
+        app,
+        tracker,
+        submitSequence: 1,
+        terminalId: "terminal-1",
+        terminalTitle: "Hermes 1",
+        attachEnabled: true,
+        now: new Date("2026-05-16T12:00:00.000Z"),
+      });
+      writeObsidianContextBridgePayloadSync(enabledPayload, bridgePath);
+      expect(readObsidianContextBridgePayloadSync(bridgePath)?.context?.type).toBe("selection");
+
+      const disabledPayload = buildObsidianContextBridgePayload({
+        app,
+        tracker,
+        submitSequence: 2,
+        terminalId: "terminal-2",
+        terminalTitle: "Hermes 2",
+        attachEnabled: false,
+        now: new Date("2026-05-16T12:00:01.000Z"),
+      });
+      writeObsidianContextBridgePayloadSync(disabledPayload, bridgePath);
+
+      const written = readObsidianContextBridgePayloadSync(bridgePath);
+      expect(written?.attach.enabled).toBe(false);
+      expect(written?.context).toBeNull();
+      expect(written?.submitSequence).toBe(2);
+      expect(written?.terminal.id).toBe("terminal-2");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("captures selection context before cursor context", () => {
@@ -629,7 +680,7 @@ describe("describeObsidianContextForHeader", () => {
       terminalTitle: "Hermes",
       now: new Date("2026-05-16T12:00:00.000Z"),
     }))).toBe("No Markdown context");
-    expect(describeObsidianContextForHeader(true, selectionPayload)).toBe("Header.md:1-2");
-    expect(describeObsidianContextForHeader(true, cursorPayload)).toBe("Cursor.md:1");
+    expect(describeObsidianContextForHeader(true, selectionPayload)).toBe("SEL 2L Header.md:1-2");
+    expect(describeObsidianContextForHeader(true, cursorPayload)).toBe("CUR Cursor.md:1");
   });
 });

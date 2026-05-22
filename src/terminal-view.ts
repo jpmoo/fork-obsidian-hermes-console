@@ -109,7 +109,6 @@ export class TerminalView extends ItemView {
       requestSaveLayout: () => { void this.app.workspace.requestSaveLayout(); },
       onSessionClose: (tab) => { void pushRecentSession(this.plugin, tab); },
       contextTracker: this.plugin.obsidianContextTracker,
-      saveSettings: () => this.plugin.saveSettings(),
     };
     this.tabManager = new TerminalTabManager(tabManagerOpts);
 
@@ -216,6 +215,10 @@ export class TerminalView extends ItemView {
 
   updateObsidianContextHeader(): void {
     this.tabManager?.updateObsidianContextHeader();
+  }
+
+  toggleActiveNoteContextEnabled(): boolean {
+    return this.tabManager?.toggleActiveNoteContextEnabled() ?? false;
   }
 
   applyTabBarPosition(): void {

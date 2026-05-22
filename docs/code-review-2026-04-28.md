@@ -9,7 +9,7 @@ Do not treat this as current release documentation or a live security review. Se
 - background completion notification was rebuilt as Hermes busy/idle status
 - selected-note/cursor context bridge became part of the public Hermes Console flow
 - Community Plugins became the recommended install path
-- fresh installs now default to right sidebar and context sharing on
+- fresh installs now default to right sidebar; note context sharing is now opt-in per Hermes Console terminal tab and defaults off after plugin reload or Obsidian restart
 
 The original detailed review was removed from published docs to avoid stale public guidance. Use current docs instead:
 

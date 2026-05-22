@@ -108,6 +108,12 @@ export default class TerminalPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "toggle-active-terminal-note-context",
+      name: "Toggle note context for active Hermes Console tab",
+      callback: () => this.toggleActiveTerminalNoteContext(),
+    });
+
+    this.addCommand({
       id: "restore-terminal-or-hermes-session",
       name: "Restore console or Hermes session",
       callback: () => void openRestoreSessionPicker(this),
@@ -314,6 +320,16 @@ export default class TerminalPlugin extends Plugin {
       await leaf.setViewState({ type: VIEW_TYPE_TERMINAL, active: true });
       void this.app.workspace.revealLeaf(leaf);
     }
+  }
+
+  private getActiveTerminalView(): TerminalView | null {
+    return this.app.workspace.getActiveViewOfType(TerminalView);
+  }
+
+  private toggleActiveTerminalNoteContext(): void {
+    const view = this.getActiveTerminalView();
+    if (!view) return;
+    view.toggleActiveNoteContextEnabled();
   }
 
   private getActiveTabManager(): TerminalTabManager | null {

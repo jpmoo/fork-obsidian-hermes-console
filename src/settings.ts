@@ -41,7 +41,6 @@ export interface TerminalPluginSettings {
   persistBuffer: boolean;
   recentSessionsMax: number;
   recentSessions: RecentSession[];
-  sendObsidianContextToHermes: boolean;
   hermesSessionIntegration: boolean;
   hermesSessionsMax: number;
   tabColorTintsBackground: boolean;
@@ -73,7 +72,6 @@ export const DEFAULT_SETTINGS: TerminalPluginSettings = {
   persistBuffer: true,
   recentSessionsMax: 10,
   recentSessions: [],
-  sendObsidianContextToHermes: true,
   hermesSessionIntegration: true,
   hermesSessionsMax: 25,
   tabColorTintsBackground: true,
@@ -117,8 +115,19 @@ export function normalizeTerminalPluginSettings(stored: unknown): SettingsMigrat
   delete migrated.enableClaudeIntegration;
   delete migrated.claudeSessionsMax;
 
+  const settings = { ...DEFAULT_SETTINGS };
+  for (const key of Object.keys(DEFAULT_SETTINGS) as Array<keyof TerminalPluginSettings>) {
+    if (Object.prototype.hasOwnProperty.call(migrated, key)) {
+      (settings as Record<keyof TerminalPluginSettings, unknown>)[key] = migrated[key];
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(migrated, "lastViewState")) {
+    settings.lastViewState = migrated.lastViewState;
+  }
+
   return {
-    settings: Object.assign({}, DEFAULT_SETTINGS, migrated),
+    settings,
     migratedLegacySettings,
   };
 }
@@ -413,17 +422,6 @@ export class TerminalSettingTab extends PluginSettingTab {
           this.plugin.settings.copyOnSelect = value;
           await this.plugin.saveSettings();
           this.plugin.updateCopyOnSelect();
-        })
-      );
-
-    new Setting(containerEl)
-      .setName("Send Obsidian context to Hermes")
-      .setDesc("When enabled, plain Enter in a terminal writes the current Markdown selection or cursor context to the local Hermes bridge before the prompt submits.")
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.sendObsidianContextToHermes).onChange(async (value) => {
-          this.plugin.settings.sendObsidianContextToHermes = value;
-          await this.plugin.saveSettings();
-          this.plugin.updateObsidianContextHeaders();
         })
       );
 

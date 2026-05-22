@@ -91,6 +91,12 @@ describe("getTerminalEnterHandlingPlan", () => {
       { type: "write-pty-sequence", sequence: SHIFT_ENTER_SEQUENCE },
     ]);
   });
+
+  it("does not write a bridge marker for Ctrl/Alt/Meta modified Enter variants", () => {
+    expect(getTerminalEnterHandlingPlan(keyEvent({ ctrlKey: true }), true)).toEqual([]);
+    expect(getTerminalEnterHandlingPlan(keyEvent({ altKey: true }), true)).toEqual([]);
+    expect(getTerminalEnterHandlingPlan(keyEvent({ metaKey: true }), true)).toEqual([]);
+  });
 });
 
 describe("normalizeClipboardTextForTerminalPaste", () => {

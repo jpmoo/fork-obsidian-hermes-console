@@ -11,13 +11,13 @@
 
 <img width="1060" height="986" alt="Screenshot 2026-05-17 at 23 38 03" src="https://github.com/user-attachments/assets/afe42505-7572-47f6-9f4a-024091886321" />
 
-Launch Hermes from your vault, send selected note text or cursor context through a local JSON bridge, and keep working while Hermes runs. Hermes Console shows busy state per tab and can notify you when a background Hermes turn finishes, without switching to an external terminal.
+Launch Hermes from your vault, opt in per terminal tab to share selected note text or cursor context through a local JSON bridge, and keep working while Hermes runs. Hermes Console shows busy state per tab and can notify you when a background Hermes turn finishes, without switching to an external terminal.
 
 <p align="center">
   <img src="assets/readme/hermes-console-context-bridge.png" alt="Hermes Console context bridge diagram: Obsidian selection flows through context.json and obsidian-context-bridge into Hermes context" width="900">
 </p>
 
-Highlight a paragraph in Obsidian, press Enter in Hermes Console, and ask Hermes to rewrite, sharpen, research, or challenge that exact text. Selection in Obsidian becomes context in Hermes.
+Highlight a paragraph in Obsidian, enable the **Send context to Hermes** header toggle for that terminal tab, press Enter in Hermes Console, and ask Hermes to rewrite, sharpen, research, or challenge that exact text. Selection in Obsidian becomes context in Hermes only for tabs where note context sharing is enabled.
 
 Already use Hermes? Install the Hermes-side bridge once:
 
@@ -25,7 +25,7 @@ Already use Hermes? Install the Hermes-side bridge once:
 hermes plugins install dannyshmueli/obsidian-hermes-console --enable
 ```
 
-Then install Hermes Console from **Settings > Community Plugins**: search for **Hermes Console**, install it, enable it, click **Download binaries**, open the console, and press Enter on your next Hermes prompt. Community Plugins installs the Obsidian plugin only; the command above installs the Hermes plugin that makes selected-note context work. The Hermes-side plugin appears as `obsidian-context-bridge`; that is expected and no extra Obsidian plugin is needed.
+Then install Hermes Console from **Settings > Community Plugins**: search for **Hermes Console**, install it, enable it, click **Download binaries**, open the console, turn on the **Send context to Hermes** header toggle for the tab you want to use, and press Enter on your next Hermes prompt. Community Plugins installs the Obsidian plugin only; the command above installs the Hermes plugin that makes selected-note context work. The Hermes-side plugin appears as `obsidian-context-bridge`; that is expected and no extra Obsidian plugin is needed.
 
 Full install instructions: https://github.com/dannyshmueli/obsidian-hermes-console#installation
 
@@ -46,10 +46,10 @@ Hermes Console is built on a fork of Lean Terminal. We preserve upstream credit 
 4. Enable **Hermes Console**.
 5. Open **Settings > Hermes Console > Download binaries** and click **Download**.
 6. Open Hermes Console from the ribbon icon or command palette.
-7. Highlight text in any note, type a prompt in Hermes Console, and press Enter.
+7. Highlight text in any note, turn on the **Send context to Hermes** header toggle for the current terminal tab, type a prompt in Hermes Console, and press Enter.
 <img width="416" height="291" alt="image" src="https://github.com/user-attachments/assets/eeb38e1d-0f1a-4200-b38a-9eaf065e463b" />
 
-Hermes Console does not install Hermes itself, and Community Plugins does not install Hermes plugins. If `hermes` is already available in your shell and `obsidian-context-bridge` is enabled, new console tabs start Hermes automatically and selected-note context is attached on submit.
+Hermes Console does not install Hermes itself, and Community Plugins does not install Hermes plugins. If `hermes` is already available in your shell and `obsidian-context-bridge` is enabled, new console tabs start Hermes automatically. Note context is attached on submit only after you opt in for that terminal tab.
 
 ### If you are new to Hermes
 
@@ -66,11 +66,11 @@ Hermes Console has three pieces. They are separate on purpose:
 1. **Obsidian plugin: Hermes Console**
    - This repository's visible Obsidian plugin.
    - Owns the terminal UI, tabs, PTY sessions, Obsidian commands, settings, safe tab close, note-context status header, and Hermes busy/idle indicators.
-   - Captures selected text or cursor context from the active Obsidian note when you press Enter in a Hermes terminal.
+   - Captures selected text or cursor context from the active Obsidian note when note context sharing is enabled for that terminal tab and you press Enter in a Hermes terminal.
 
 2. **Bridge file: `.obsidian/hermes/context.json`**
    - A local JSON handoff file written by the Obsidian plugin inside the active vault.
-   - Plain Enter writes a fresh marker before the PTY receives Enter.
+   - Plain Enter writes a fresh marker before the PTY receives Enter; disabled tabs write a detach marker instead of note context.
    - It is not a plugin, not a background service, not clipboard paste, and not an Obsidian-to-Hermes network connection.
 
 3. **Hermes plugin: `obsidian-context-bridge`**
@@ -132,9 +132,10 @@ End-to-end selected-text/cursor behavior requires all three pieces: Obsidian cap
 
 ### Hermes Context Bridge
 
-- Global **Send Obsidian context to Hermes** toggle is on by default for new installs and controls whether selected text or cursor context is attached to Hermes turns
-- Selection wins when text is selected; otherwise cursor context can provide the current note location and nearby lines
-- Context is captured at submit time, not pasted into the terminal, so multi-line selections do not break prompt entry
+- Note context sharing is opt-in per Hermes Console terminal tab. Use the **Send context to Hermes** header toggle in the console header, or run **Toggle note context for active Hermes Console tab** from the command palette and bind it under Settings > Hotkeys.
+- The per-tab toggle defaults off after plugin reload or Obsidian restart; enable it again for each terminal tab that should share note context.
+- When enabled, selection wins when text is selected; if nothing is selected, Hermes Console sends cursor/file context with the current note location and nearby lines.
+- Context is captured at submit time, not pasted into the terminal, so multi-line selections do not break prompt entry.
 - The terminal process receives `OBSIDIAN_CONTEXT_BRIDGE_PATH` so the `obsidian-context-bridge` Hermes plugin can read the right vault bridge file
 - Large selections can stay out of the prompt body and be fetched by Hermes through `obsidian_context()`
 
@@ -194,7 +195,7 @@ BRAT installs the Obsidian plugin release assets (`main.js`, `manifest.json`, `s
 - Terminal opens from the ribbon icon or command palette
 - Hermes CLI is installed separately and visible to Obsidian's PATH if you want Hermes autostart
 - A new terminal tab starts `hermes` by default when Hermes is available in PATH
-- If using note context: `<vault>/.obsidian/hermes/context.json` is updated when you press Enter in a Hermes terminal
+- If using note context: enable the **Send context to Hermes** header toggle for the current terminal tab; `<vault>/.obsidian/hermes/context.json` is updated when you press Enter in that Hermes terminal
 - If using note context: the Hermes process has the `obsidian-context-bridge` plugin enabled and can receive `OBSIDIAN_CONTEXT_BRIDGE_PATH`
 
 ### Troubleshooting

@@ -51,8 +51,20 @@ describe("DEFAULT_SETTINGS", () => {
     expect(DEFAULT_SETTINGS.defaultLocation).toBe("right");
   });
 
-  it("defaults Obsidian context sharing on for Hermes turns", () => {
-    expect(DEFAULT_SETTINGS.sendObsidianContextToHermes).toBe(true);
+  it("does not include the removed global context-sharing setting in defaults", () => {
+    const removedGlobalContextSetting = ["sendObsidianContext", "ToHermes"].join("");
+
+    expect(DEFAULT_SETTINGS).not.toHaveProperty(removedGlobalContextSetting);
+  });
+
+  it("ignores old saved global context-sharing values", () => {
+    const removedGlobalContextSetting = ["sendObsidianContext", "ToHermes"].join("");
+    const { settings, migratedLegacySettings } = normalizeTerminalPluginSettings({
+      [removedGlobalContextSetting]: true,
+    });
+
+    expect(migratedLegacySettings).toBe(false);
+    expect(settings).not.toHaveProperty(removedGlobalContextSetting);
   });
 
   it("notifies on background Hermes completion by default", () => {

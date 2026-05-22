@@ -302,9 +302,9 @@ export function describeObsidianContextForHeader(
   if (!payload.attach.enabled) return "OFF";
   if (!payload.context) return "No Markdown context";
   if (payload.context.type === "selection") {
-    return `${payload.context.file.name}:${payload.context.range.from.line + 1}-${payload.context.range.to.line + 1}`;
+    return `SEL ${payload.context.lineCount}L ${payload.context.file.name}:${payload.context.range.from.line + 1}-${payload.context.range.to.line + 1}`;
   }
-  return `${payload.context.file.name}:${payload.context.cursor.line + 1}`;
+  return `CUR ${payload.context.file.name}:${payload.context.cursor.line + 1}`;
 }
 
 export class ObsidianContextBridgeConsumer {

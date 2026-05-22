@@ -9,7 +9,7 @@
 | Pin tab | Right-click the tab - **Pin** - hides the close button and blocks accidental close |
 | Reorder tabs | Drag a tab left or right when two or more tabs are open |
 | Drop file path | Drag a file from the file explorer or Windows Explorer into the terminal |
-| Send note/cursor context to Hermes | Enabled by default for new installs. Select text or place your cursor in a Markdown note, type a prompt in Hermes Console, and press Enter. Requires the `obsidian-context-bridge` Hermes plugin |
+| Share note context with Hermes | Opt in per Hermes Console terminal tab with the **Send context to Hermes** header toggle, or run **Toggle note context for active Hermes Console tab** from the command palette and bind it under Settings > Hotkeys. The toggle defaults off after plugin reload or Obsidian restart. When enabled, select text in a Markdown note, or place your cursor in a note if nothing is selected, then type a prompt in Hermes Console and press Enter. Requires the `obsidian-context-bridge` Hermes plugin |
 | Search terminal output | Press **Ctrl+Alt+F** (configurable) to open the search bar |
 | Close tab | Click the **x** on the tab |
 | Open console in current file's folder | Command palette: **Open Hermes Console in current file's directory** (only visible when a file is active) |
