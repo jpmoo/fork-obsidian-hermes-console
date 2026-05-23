@@ -129,11 +129,13 @@ describe("context header toggle state", () => {
       ariaPressed: "false",
       className: "",
       label: "Send context to Hermes A",
+      tooltip: "Selected note/cursor context is not sent to Hermes A. Click to include it with the next message.",
     });
     expect(headerForActiveTab("terminal-b")).toMatchObject({
       ariaPressed: "true",
       className: "terminal-context-toggle--on",
       label: "Send context to Hermes B",
+      tooltip: "Selected note/cursor context will be sent with the next message in Hermes B. Click to turn it off.",
     });
     expect(headerForActiveTab("terminal-a")).toMatchObject({
       ariaPressed: "false",
@@ -206,10 +208,16 @@ describe("context header toggle state", () => {
 
       manager.switchTab("terminal-a");
       expect(getRenderedToggle(header).getAttribute("aria-pressed")).toBe("false");
+      expect(getRenderedToggle(header).getAttribute("title")).toBe(
+        "Selected note/cursor context is not sent to Hermes A. Click to include it with the next message.",
+      );
       expect(getRenderedToggle(header).hasClass("terminal-context-toggle--on")).toBe(false);
 
       manager.switchTab("terminal-b");
       expect(getRenderedToggle(header).getAttribute("aria-pressed")).toBe("true");
+      expect(getRenderedToggle(header).getAttribute("aria-label")).toBe(
+        "Selected note/cursor context will be sent with the next message in Hermes B. Click to turn it off.",
+      );
       expect(getRenderedToggle(header).hasClass("terminal-context-toggle--on")).toBe(true);
 
       manager.switchTab("terminal-a");

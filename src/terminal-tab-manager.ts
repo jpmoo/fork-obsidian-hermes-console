@@ -458,6 +458,8 @@ export class TerminalTabManager {
     });
     toggle.type = "button";
     toggle.setAttribute("aria-pressed", toggleState.ariaPressed);
+    toggle.setAttribute("aria-label", toggleState.tooltip);
+    toggle.setAttribute("title", toggleState.tooltip);
     toggle.toggleClass("terminal-context-toggle--on", toggleState.className !== "");
     toggle.createSpan({
       cls: "terminal-context-toggle-label",
