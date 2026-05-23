@@ -4,6 +4,14 @@ All notable changes to Hermes Console are documented here.
 
 ## Unreleased
 
+## 1.1.16 - May 23, 2026
+
+### Improvements
+
+- Replace the ribbon/tab icon with the generated Hermes half-wing artwork, cleaned into an Obsidian-style gray sidebar glyph.
+- Add a resizable vertical tab rail for left/right tab bars, with persisted width and settings control.
+- Move default location and tab bar placement controls to the top of Appearance so layout settings are easier to find.
+
 ## 1.1.15 - May 23, 2026
 
 ### Improvements

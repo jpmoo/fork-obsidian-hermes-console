@@ -4,6 +4,7 @@ import { TerminalTabManager, type TabManagerOptions, type CreateTabOpts } from "
 import { pushRecentSession } from "./recent-sessions";
 import type TerminalPlugin from "./main";
 import type { SavedViewState } from "./session-state";
+import { clampVerticalTabBarWidth } from "./settings";
 import { HERMES_SETTINGS_ICON_ID } from "./hermes-icon";
 import {
   getTerminalViewCloseBlockedMessage,
@@ -18,6 +19,7 @@ export class TerminalView extends ItemView {
   private viewContainer: HTMLElement | null = null;
   private originalLeafDetach: WorkspaceLeaf["detach"] | null = null;
   private workspaceCloseAuthorized = false;
+  private verticalTabResizeCleanup: (() => void) | null = null;
   /**
    * State passed to setState() before onOpen() has constructed the tab manager.
    * Applied in onOpen() once the manager is ready.
@@ -87,7 +89,16 @@ export class TerminalView extends ItemView {
 
     const shellBodyEl = shellEl.createDiv({ cls: "terminal-shell-body" });
     const tabBarEl = shellBodyEl.createDiv({ cls: "terminal-tab-bar" });
+    const tabBarResizeHandleEl = shellBodyEl.createDiv({
+      cls: "terminal-tab-bar-resize-handle",
+      attr: {
+        role: "separator",
+        "aria-orientation": "vertical",
+        "aria-label": "Resize vertical tab bar",
+      },
+    });
     const mainAreaEl = shellBodyEl.createDiv({ cls: "terminal-main-area" });
+    this.installVerticalTabResize(tabBarEl, tabBarResizeHandleEl);
 
     // Terminal host (all session containers go here)
     const terminalHostEl = mainAreaEl.createDiv({ cls: "terminal-host" });
@@ -168,6 +179,8 @@ export class TerminalView extends ItemView {
   async onClose(): Promise<void> {
     if (this.resizeTimer) window.clearTimeout(this.resizeTimer);
     this.resizeObserver?.disconnect();
+    this.verticalTabResizeCleanup?.();
+    this.verticalTabResizeCleanup = null;
     this.restoreWorkspaceCloseGuard();
     this.tabManager?.destroyAll();
     this.tabManager = null;
@@ -233,6 +246,77 @@ export class TerminalView extends ItemView {
     const pos = this.plugin.settings.tabBarPosition;
     if (pos === "left") this.viewContainer.addClass("terminal-tabs-left");
     else if (pos === "right") this.viewContainer.addClass("terminal-tabs-right");
+    this.viewContainer.style.setProperty(
+      "--terminal-vertical-tab-bar-width",
+      `${clampVerticalTabBarWidth(this.plugin.settings.verticalTabBarWidth)}px`,
+    );
+    this.tabManager?.fitActive();
+  }
+
+  private installVerticalTabResize(tabBarEl: HTMLElement, handleEl: HTMLElement): void {
+    this.verticalTabResizeCleanup?.();
+    const activeDocument = this.containerEl.ownerDocument ?? document;
+    const activeWindow = activeDocument.defaultView ?? window;
+    let startX = 0;
+    let startWidth = 0;
+    let side: "left" | "right" | null = null;
+    let frame = 0;
+
+    const applyWidth = (width: number, persist: boolean): void => {
+      const nextWidth = clampVerticalTabBarWidth(width);
+      this.plugin.settings.verticalTabBarWidth = nextWidth;
+      this.viewContainer?.style.setProperty("--terminal-vertical-tab-bar-width", `${nextWidth}px`);
+      this.tabManager?.fitActive();
+      if (persist) {
+        void this.plugin.saveSettings();
+        void this.app.workspace.requestSaveLayout();
+      }
+    };
+
+    const onPointerMove = (event: PointerEvent): void => {
+      if (!side) return;
+      const delta = event.clientX - startX;
+      const nextWidth = side === "left" ? startWidth + delta : startWidth - delta;
+      if (frame) activeWindow.cancelAnimationFrame(frame);
+      frame = activeWindow.requestAnimationFrame(() => {
+        frame = 0;
+        applyWidth(nextWidth, false);
+      });
+    };
+
+    const stopResize = (): void => {
+      if (!side) return;
+      side = null;
+      if (frame) {
+        activeWindow.cancelAnimationFrame(frame);
+        frame = 0;
+      }
+      activeDocument.body.removeClass("terminal-tab-bar-resizing");
+      activeWindow.removeEventListener("pointermove", onPointerMove);
+      activeWindow.removeEventListener("pointerup", stopResize);
+      activeWindow.removeEventListener("pointercancel", stopResize);
+      applyWidth(this.plugin.settings.verticalTabBarWidth, true);
+    };
+
+    const onPointerDown = (event: PointerEvent): void => {
+      const position = this.plugin.settings.tabBarPosition;
+      if (position !== "left" && position !== "right") return;
+      event.preventDefault();
+      startX = event.clientX;
+      startWidth = tabBarEl.getBoundingClientRect().width || this.plugin.settings.verticalTabBarWidth;
+      side = position;
+      activeDocument.body.addClass("terminal-tab-bar-resizing");
+      handleEl.setPointerCapture?.(event.pointerId);
+      activeWindow.addEventListener("pointermove", onPointerMove);
+      activeWindow.addEventListener("pointerup", stopResize);
+      activeWindow.addEventListener("pointercancel", stopResize);
+    };
+
+    handleEl.addEventListener("pointerdown", onPointerDown);
+    this.verticalTabResizeCleanup = () => {
+      handleEl.removeEventListener("pointerdown", onPointerDown);
+      stopResize();
+    };
   }
 
   getState(): Record<string, unknown> {

@@ -412,9 +412,9 @@ export default class TerminalPlugin extends Plugin {
   async loadSettings(): Promise<void> {
     const { settings, migratedLegacySettings } = normalizeTerminalPluginSettings(await this.loadData());
     this.settings = settings;
-    // Migrate the old generic Lucide icon to the Hermes-specific caduceus/wing
-    // mark, while preserving any custom icon name the user entered manually.
-    if (this.settings.ribbonIcon === "bot-message-square") {
+    // Migrate older built-in icons to the current Hermes half-wing mark,
+    // while preserving any custom icon name the user entered manually.
+    if (this.settings.ribbonIcon === "bot-message-square" || this.settings.ribbonIcon === "hermes-caduceus-wing") {
       this.settings.ribbonIcon = DEFAULT_SETTINGS.ribbonIcon;
     }
     // tabColors is the only array in settings. Object.assign is shallow,

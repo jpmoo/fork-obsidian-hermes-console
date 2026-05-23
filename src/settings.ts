@@ -10,6 +10,8 @@ import {
 import { HERMES_ICON_ID } from "./hermes-icon";
 
 export type NotificationSound = "beep" | "chime" | "ping" | "pop";
+export const MIN_VERTICAL_TAB_BAR_WIDTH = 132;
+export const MAX_VERTICAL_TAB_BAR_WIDTH = 360;
 
 /**
  * How an accepted wiki-link suggestion is written to the shell.
@@ -46,6 +48,7 @@ export interface TerminalPluginSettings {
   tabColorTintsBackground: boolean;
   tabColors: TabColorDef[];
   tabBarPosition: "top" | "left" | "right";
+  verticalTabBarWidth: number;
   wikiLinkAutocomplete: boolean;
   wikiLinkInsertMode: WikiLinkInsertMode;
   /** Saved by closeTerminal(); restored by activateTerminal(). Cleared after restore. */
@@ -77,6 +80,7 @@ export const DEFAULT_SETTINGS: TerminalPluginSettings = {
   tabColorTintsBackground: true,
   tabColors: DEFAULT_TAB_COLORS.map((c) => ({ ...c })),
   tabBarPosition: "top",
+  verticalTabBarWidth: 220,
   wikiLinkAutocomplete: false,
   wikiLinkInsertMode: "wikilink",
 };
@@ -126,10 +130,19 @@ export function normalizeTerminalPluginSettings(stored: unknown): SettingsMigrat
     settings.lastViewState = migrated.lastViewState;
   }
 
+  settings.verticalTabBarWidth = clampVerticalTabBarWidth(settings.verticalTabBarWidth);
+
   return {
     settings,
     migratedLegacySettings,
   };
+}
+
+export function clampVerticalTabBarWidth(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_SETTINGS.verticalTabBarWidth;
+  }
+  return Math.round(Math.min(MAX_VERTICAL_TAB_BAR_WIDTH, Math.max(MIN_VERTICAL_TAB_BAR_WIDTH, value)));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -410,20 +423,6 @@ export class TerminalSettingTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl)
-      .setName("Default location")
-      .setDesc("Where to open the first terminal view")
-      .addDropdown((dropdown) => {
-        dropdown.addOption("bottom", "Split tab bottom");
-        dropdown.addOption("right", "Right panel");
-        dropdown.addOption("tab", "New tab");
-        dropdown.addOption("split-right", "Split vertical");
-        dropdown.setValue(this.plugin.settings.defaultLocation);
-        dropdown.onChange(async (value: string) => {
-          this.plugin.settings.defaultLocation = value as TerminalPluginSettings["defaultLocation"];
-          await this.plugin.saveSettings();
-        });
-      });
 
     new Setting(containerEl)
       .setName("Copy on select")
@@ -499,6 +498,51 @@ export class TerminalSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Appearance").setHeading();
 
     new Setting(containerEl)
+      .setName("Plugin default location")
+      .setDesc("Where Hermes Console opens when you run the open/restore commands.")
+      .addDropdown((dropdown) => {
+        dropdown.addOption("bottom", "Bottom split");
+        dropdown.addOption("right", "Right sidebar");
+        dropdown.addOption("tab", "New tab");
+        dropdown.addOption("split-right", "Right split");
+        dropdown.setValue(this.plugin.settings.defaultLocation);
+        dropdown.onChange(async (value: string) => {
+          this.plugin.settings.defaultLocation = value as TerminalPluginSettings["defaultLocation"];
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Tab bar position")
+      .setDesc("Position of the tab bar within the terminal panel.")
+      .addDropdown((dropdown) => {
+        dropdown.addOption("top", "Top");
+        dropdown.addOption("left", "Left");
+        dropdown.addOption("right", "Right");
+        dropdown.setValue(this.plugin.settings.tabBarPosition);
+        dropdown.onChange(async (value: string) => {
+          this.plugin.settings.tabBarPosition = value as "top" | "left" | "right";
+          await this.plugin.saveSettings();
+          this.plugin.updateTabBarPosition();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Vertical tab bar width")
+      .setDesc("Drag the divider next to left/right tabs, or set the saved width here.")
+      .addSlider((slider) =>
+        slider
+          .setLimits(MIN_VERTICAL_TAB_BAR_WIDTH, MAX_VERTICAL_TAB_BAR_WIDTH, 1)
+          .setValue(this.plugin.settings.verticalTabBarWidth)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.verticalTabBarWidth = value;
+            await this.plugin.saveSettings();
+            this.plugin.updateTabBarPosition();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName("Font size")
       .setDesc("Terminal font size in pixels (8-32)")
       .addSlider((slider) =>
@@ -540,7 +584,7 @@ export class TerminalSettingTab extends PluginSettingTab {
 
     const iconSetting = new Setting(containerEl)
       .setName("Icon")
-      .setDesc(`Icon name for the ribbon and tab. Default is the custom Hermes caduceus/wing mark (${HERMES_ICON_ID}); Lucide names still work.`);
+      .setDesc(`Icon name for the ribbon and tab. Default is the custom Hermes half-wing mark (${HERMES_ICON_ID}); Lucide names still work.`);
 
     let previewEl: HTMLElement | null = null;
 
@@ -697,21 +741,6 @@ export class TerminalSettingTab extends PluginSettingTab {
   }
 
   private renderTabBarSection(containerEl: HTMLElement): void {
-    new Setting(containerEl)
-      .setName("Tab bar position")
-      .setDesc("Position of the tab bar within the terminal panel.")
-      .addDropdown((dropdown) => {
-        dropdown.addOption("top", "Top");
-        dropdown.addOption("left", "Left");
-        dropdown.addOption("right", "Right");
-        dropdown.setValue(this.plugin.settings.tabBarPosition);
-        dropdown.onChange(async (value: string) => {
-          this.plugin.settings.tabBarPosition = value as "top" | "left" | "right";
-          await this.plugin.saveSettings();
-          this.plugin.updateTabBarPosition();
-        });
-      });
-
     new Setting(containerEl).setName("Tab colors").setHeading();
 
     new Setting(containerEl)

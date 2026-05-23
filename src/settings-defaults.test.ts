@@ -12,7 +12,7 @@ describe("DEFAULT_SETTINGS", () => {
     expect(DEFAULT_SETTINGS.startupCommand).toBe("hermes");
   });
 
-  it("defaults to the custom Hermes caduceus wing icon", () => {
+  it("defaults to the custom Hermes half-wing icon", () => {
     expect(DEFAULT_SETTINGS.ribbonIcon).toBe(HERMES_ICON_ID);
   });
 
@@ -69,6 +69,16 @@ describe("DEFAULT_SETTINGS", () => {
 
   it("notifies on background Hermes completion by default", () => {
     expect(DEFAULT_SETTINGS.notifyOnHermesIdleInBackground).toBe(true);
+  });
+
+  it("uses a wider persisted vertical tab bar by default", () => {
+    expect(DEFAULT_SETTINGS.verticalTabBarWidth).toBeGreaterThanOrEqual(200);
+  });
+
+  it("clamps saved vertical tab bar width into supported bounds", () => {
+    expect(normalizeTerminalPluginSettings({ verticalTabBarWidth: 80 }).settings.verticalTabBarWidth).toBe(132);
+    expect(normalizeTerminalPluginSettings({ verticalTabBarWidth: 999 }).settings.verticalTabBarWidth).toBe(360);
+    expect(normalizeTerminalPluginSettings({ verticalTabBarWidth: 243.6 }).settings.verticalTabBarWidth).toBe(244);
   });
 });
 
