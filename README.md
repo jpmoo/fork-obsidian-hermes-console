@@ -9,12 +9,14 @@
 [![License](https://img.shields.io/badge/License-MIT-007BFF?style=flat-square&labelColor=000000)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=flat-square&labelColor=000000&logo=discord&logoColor=5865F2)](https://discord.gg/sbMg6PP2vq)
 
-<img width="1060" height="986" alt="Screenshot 2026-05-17 at 23 38 03" src="https://github.com/user-attachments/assets/afe42505-7572-47f6-9f4a-024091886321" />
+<img width="1128" height="597" alt="Screenshot 2026-05-23 at 11 35 38" src="https://github.com/user-attachments/assets/fb45593a-6ff7-49ac-8638-d54a1b8f3b7c" />
+
 
 Launch Hermes from your vault, opt in per terminal tab to share selected note text or cursor context through a local JSON bridge, and keep working while Hermes runs. Hermes Console shows busy state per tab and can notify you when a background Hermes turn finishes, without switching to an external terminal.
 
 <p align="center">
   <img src="assets/readme/hermes-console-context-bridge.png" alt="Hermes Console context bridge diagram: Obsidian selection flows through context.json and obsidian-context-bridge into Hermes context" width="900">
+  
 </p>
 
 Highlight a paragraph in Obsidian, enable the **Send context to Hermes** header toggle for that terminal tab, press Enter in Hermes Console, and ask Hermes to rewrite, sharpen, research, or challenge that exact text. Selection in Obsidian becomes context in Hermes only for tabs where note context sharing is enabled.
