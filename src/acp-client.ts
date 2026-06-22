@@ -43,6 +43,13 @@ export interface AcpModelInfo {
   name: string;
 }
 
+/** One selectable model from the session's available list. */
+export interface AcpAvailableModel {
+  modelId: string;
+  name: string;
+  description?: string;
+}
+
 /** Per-turn token accounting returned by session/prompt. */
 export interface AcpUsage {
   inputTokens?: number;
@@ -90,6 +97,8 @@ export class AcpClient {
   private disposed = false;
   /** Selected model, populated after the session is created. */
   model: AcpModelInfo | null = null;
+  /** All selectable models reported by the session. */
+  availableModels: AcpAvailableModel[] = [];
 
   constructor(
     private readonly callbacks: AcpClientCallbacks,
@@ -152,15 +161,24 @@ export class AcpClient {
       mcpServers: [],
     }, 60000)) as {
       sessionId: string;
-      models?: { currentModelId?: string; availableModels?: { modelId: string; name: string }[] };
+      models?: { currentModelId?: string; availableModels?: AcpAvailableModel[] };
     };
     this.sessionId = newSession.sessionId;
 
     const models = newSession.models;
+    this.availableModels = models?.availableModels ?? [];
     if (models?.currentModelId) {
-      const match = models.availableModels?.find((m) => m.modelId === models.currentModelId);
+      const match = this.availableModels.find((m) => m.modelId === models.currentModelId);
       this.model = { id: models.currentModelId, name: match?.name ?? models.currentModelId };
     }
+  }
+
+  /** Switch the active model for this session. */
+  async setModel(modelId: string): Promise<void> {
+    if (!this.sessionId) throw new Error("ACP session not started");
+    await this.request("session/set_model", { sessionId: this.sessionId, modelId }, 30000);
+    const match = this.availableModels.find((m) => m.modelId === modelId);
+    this.model = { id: modelId, name: match?.name ?? modelId };
   }
 
   /** Send a user prompt. Resolves with stop reason and token usage. */

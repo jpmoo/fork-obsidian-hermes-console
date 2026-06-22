@@ -2,6 +2,8 @@ import {
   FileSystemAdapter,
   ItemView,
   MarkdownRenderer,
+  Menu,
+  Notice,
   WorkspaceLeaf,
 } from "obsidian";
 import { VIEW_TYPE_TERMINAL } from "./constants";
@@ -74,6 +76,7 @@ export class HermesChatView extends ItemView {
 
     const status = container.createDiv({ cls: "hermes-chat-status" });
     this.modelEl = status.createSpan({ cls: "hermes-stat hermes-stat-model" });
+    this.modelEl.addEventListener("click", (e) => this.openModelMenu(e));
     this.ctxEl = status.createSpan({ cls: "hermes-stat hermes-stat-ctx" });
     this.tokensEl = status.createSpan({ cls: "hermes-stat hermes-stat-tokens" });
     this.timeEl = status.createSpan({ cls: "hermes-stat hermes-stat-time" });
@@ -326,7 +329,42 @@ export class HermesChatView extends ItemView {
   }
 
   private updateModel(): void {
-    this.modelEl.setText(this.client?.model?.name ?? "");
+    const name = this.client?.model?.name ?? "";
+    this.modelEl.setText(name ? `${name} ▾` : "");
+    const hasChoices = (this.client?.availableModels.length ?? 0) > 1;
+    this.modelEl.toggleClass("hermes-stat-model--clickable", hasChoices);
+    this.modelEl.setAttr("title", hasChoices ? "Click to switch model" : "");
+  }
+
+  private openModelMenu(evt: MouseEvent): void {
+    const client = this.client;
+    if (!client) return;
+    // Embedding models can't drive a chat turn — keep them out of the picker.
+    const models = client.availableModels.filter((m) => !/embed/i.test(m.modelId));
+    if (models.length < 2) return;
+
+    const menu = new Menu();
+    for (const m of models) {
+      menu.addItem((item) => {
+        item.setTitle(m.name).setChecked(m.modelId === client.model?.id);
+        item.onClick(() => void this.switchModel(m.modelId));
+      });
+    }
+    menu.showAtMouseEvent(evt);
+  }
+
+  private async switchModel(modelId: string): Promise<void> {
+    if (!this.client || this.turnActive) {
+      if (this.turnActive) new Notice("Wait for the current turn to finish before switching models.");
+      return;
+    }
+    try {
+      await this.client.setModel(modelId);
+      this.updateModel();
+      this.setStatus(`Switched to ${this.client.model?.name}`);
+    } catch (err) {
+      new Notice(`Failed to switch model: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   private updateContext(used: number, size: number): void {

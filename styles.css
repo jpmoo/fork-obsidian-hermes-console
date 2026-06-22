@@ -1375,4 +1375,6 @@ body.terminal-tab-bar-resizing {
 }
 
 .hermes-stat-model { color: var(--text-muted); font-weight: 600; }
+.hermes-stat-model--clickable { cursor: pointer; }
+.hermes-stat-model--clickable:hover { color: var(--text-normal); }
 .hermes-stat-state { margin-left: auto; }
