@@ -1233,13 +1233,17 @@ body.terminal-tab-bar-resizing {
 .hermes-context-toggle--on .hermes-context-label { color: var(--text-normal); }
 
 .hermes-context-info {
-  font-size: 10.5px;
-  color: var(--text-faint);
+  flex-shrink: 0;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
   font-family: var(--font-monospace);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 50%;
 }
 .hermes-context-info:empty { display: none; }
 

@@ -82,11 +82,13 @@ export class HermesChatView extends ItemView {
     // Header — title (matches the pane/tab name) + note-context toggle.
     const header = container.createDiv({ cls: "hermes-chat-header" });
     header.createDiv({ cls: "hermes-chat-title", text: "Hermes Console" });
-    this.contextInfoEl = header.createDiv({ cls: "hermes-context-info" });
     this.contextToggleEl = header.createDiv({ cls: "hermes-context-toggle" });
     this.contextToggleEl.createDiv({ cls: "hermes-context-switch" }).createDiv({ cls: "hermes-context-knob" });
     this.contextToggleEl.createSpan({ cls: "hermes-context-label", text: "Note context" });
     this.contextToggleEl.addEventListener("click", () => this.toggleContext());
+
+    // Context detail on its own row beneath the header (single truncated line).
+    this.contextInfoEl = container.createDiv({ cls: "hermes-context-info" });
 
     this.messagesEl = container.createDiv({ cls: "hermes-chat-messages" });
 
@@ -394,11 +396,11 @@ export class HermesChatView extends ItemView {
     }
     const c = this.lastNoteContext;
     if (!c) {
-      this.contextInfoEl.setText("no active note");
+      this.contextInfoEl.setText("sending: no active note");
       return;
     }
     const kind = c.selection.trim() ? "selection" : `cursor · line ${c.cursorLine + 1}`;
-    this.contextInfoEl.setText(`${c.basename} · ${kind}`);
+    this.contextInfoEl.setText(`sending: ${c.basename} · ${kind}`);
   }
 
   /** Build the context preamble sent to Hermes, or null when disabled/empty. */
