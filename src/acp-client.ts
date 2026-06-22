@@ -37,6 +37,26 @@ export interface AcpPermissionRequest {
   options: AcpPermissionOption[];
 }
 
+/** The currently selected model, as reported by session/new. */
+export interface AcpModelInfo {
+  id: string;
+  name: string;
+}
+
+/** Per-turn token accounting returned by session/prompt. */
+export interface AcpUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  thoughtTokens?: number;
+  cachedReadTokens?: number;
+  totalTokens?: number;
+}
+
+export interface AcpPromptResult {
+  stopReason: string;
+  usage?: AcpUsage;
+}
+
 export interface AcpClientCallbacks {
   /** Streamed session/update notification (thoughts, message chunks, tool calls). */
   onSessionUpdate(update: AcpSessionUpdate): void;
@@ -68,6 +88,8 @@ export class AcpClient {
   private pending = new Map<number, PendingCall>();
   private sessionId: string | null = null;
   private disposed = false;
+  /** Selected model, populated after the session is created. */
+  model: AcpModelInfo | null = null;
 
   constructor(
     private readonly callbacks: AcpClientCallbacks,
@@ -128,18 +150,26 @@ export class AcpClient {
     const newSession = (await this.request("session/new", {
       cwd,
       mcpServers: [],
-    }, 60000)) as { sessionId: string };
+    }, 60000)) as {
+      sessionId: string;
+      models?: { currentModelId?: string; availableModels?: { modelId: string; name: string }[] };
+    };
     this.sessionId = newSession.sessionId;
+
+    const models = newSession.models;
+    if (models?.currentModelId) {
+      const match = models.availableModels?.find((m) => m.modelId === models.currentModelId);
+      this.model = { id: models.currentModelId, name: match?.name ?? models.currentModelId };
+    }
   }
 
-  /** Send a user prompt. Resolves with the stop reason when the turn ends. */
-  async prompt(text: string): Promise<string> {
+  /** Send a user prompt. Resolves with stop reason and token usage. */
+  async prompt(text: string): Promise<AcpPromptResult> {
     if (!this.sessionId) throw new Error("ACP session not started");
-    const result = (await this.request("session/prompt", {
+    return (await this.request("session/prompt", {
       sessionId: this.sessionId,
       prompt: [{ type: "text", text }],
-    })) as { stopReason: string };
-    return result.stopReason;
+    })) as AcpPromptResult;
   }
 
   /** Ask the agent to cancel the in-flight turn. */

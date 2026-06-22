@@ -19,7 +19,16 @@ export class HermesChatView extends ItemView {
   private messagesEl!: HTMLElement;
   private inputEl!: HTMLTextAreaElement;
   private sendButton!: HTMLButtonElement;
-  private statusEl!: HTMLElement;
+
+  // Status bar fields (model · context · tokens · time · state).
+  private stateEl!: HTMLElement;
+  private modelEl!: HTMLElement;
+  private ctxEl!: HTMLElement;
+  private tokensEl!: HTMLElement;
+  private timeEl!: HTMLElement;
+
+  private turnStart = 0;
+  private timeTimer: number | null = null;
 
   // The conversation is rendered as ordered segments in arrival order:
   // thought → text → tool → text → … Each segment is finalized (markdown
@@ -63,7 +72,12 @@ export class HermesChatView extends ItemView {
     });
     this.sendButton = inputRow.createEl("button", { cls: "hermes-chat-send", text: "Send" });
 
-    this.statusEl = container.createDiv({ cls: "hermes-chat-status" });
+    const status = container.createDiv({ cls: "hermes-chat-status" });
+    this.modelEl = status.createSpan({ cls: "hermes-stat hermes-stat-model" });
+    this.ctxEl = status.createSpan({ cls: "hermes-stat hermes-stat-ctx" });
+    this.tokensEl = status.createSpan({ cls: "hermes-stat hermes-stat-tokens" });
+    this.timeEl = status.createSpan({ cls: "hermes-stat hermes-stat-time" });
+    this.stateEl = status.createSpan({ cls: "hermes-stat hermes-stat-state" });
 
     this.inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -80,6 +94,7 @@ export class HermesChatView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    this.stopTurnTimer();
     this.client?.dispose();
     this.client = null;
   }
@@ -108,6 +123,7 @@ export class HermesChatView extends ItemView {
     try {
       await this.client.start(cwd);
       this.connected = true;
+      this.updateModel();
       this.setStatus("Ready.");
       this.inputEl.focus();
     } catch (err) {
@@ -131,15 +147,19 @@ export class HermesChatView extends ItemView {
 
     this.turnActive = true;
     this.sendButton.disabled = true;
-    this.setStatus("Hermes is thinking…");
+    this.setStatus("Thinking…");
     this.resetSegments();
+    this.startTurnTimer();
 
     try {
-      await this.client.prompt(text);
+      const result = await this.client.prompt(text);
+      if (result.usage) this.updateTokens(result.usage);
       this.setStatus("Ready.");
     } catch (err) {
       this.setStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
+      this.stopTurnTimer();
+      this.renderElapsed();
       this.finalizeSegments();
       this.turnActive = false;
       this.sendButton.disabled = false;
@@ -172,7 +192,7 @@ export class HermesChatView extends ItemView {
         const used = update.used as number | undefined;
         const size = update.size as number | undefined;
         if (typeof used === "number" && typeof size === "number") {
-          this.setStatus(`Context: ${Math.round((used / size) * 100)}% (${used.toLocaleString()} / ${size.toLocaleString()})`);
+          this.updateContext(used, size);
         }
         break;
       }
@@ -302,7 +322,42 @@ export class HermesChatView extends ItemView {
   // --- helpers ---------------------------------------------------------
 
   private setStatus(text: string): void {
-    this.statusEl.setText(text);
+    this.stateEl.setText(text);
+  }
+
+  private updateModel(): void {
+    this.modelEl.setText(this.client?.model?.name ?? "");
+  }
+
+  private updateContext(used: number, size: number): void {
+    const pct = size > 0 ? Math.round((used / size) * 100) : 0;
+    this.ctxEl.setText(`ctx ${pct}%`);
+    this.ctxEl.setAttr("title", `Context: ${used.toLocaleString()} / ${size.toLocaleString()} tokens`);
+  }
+
+  private updateTokens(usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }): void {
+    const fmt = (n?: number) => (typeof n === "number" ? (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)) : "0");
+    this.tokensEl.setText(`↑${fmt(usage.inputTokens)} ↓${fmt(usage.outputTokens)}`);
+    this.tokensEl.setAttr("title", `Tokens — in: ${usage.inputTokens ?? 0}, out: ${usage.outputTokens ?? 0}, total: ${usage.totalTokens ?? 0}`);
+  }
+
+  private startTurnTimer(): void {
+    this.turnStart = Date.now();
+    this.stopTurnTimer();
+    this.timeTimer = window.setInterval(() => this.renderElapsed(), 1000);
+    this.renderElapsed();
+  }
+
+  private stopTurnTimer(): void {
+    if (this.timeTimer !== null) {
+      window.clearInterval(this.timeTimer);
+      this.timeTimer = null;
+    }
+  }
+
+  private renderElapsed(): void {
+    const secs = Math.round((Date.now() - this.turnStart) / 1000);
+    this.timeEl.setText(secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`);
   }
 
   private scrollToBottom(): void {

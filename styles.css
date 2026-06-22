@@ -1353,8 +1353,26 @@ body.terminal-tab-bar-resizing {
 }
 
 .hermes-chat-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
   padding: 4px 12px 8px;
   font-size: 11px;
+  font-family: var(--font-monospace);
   color: var(--text-faint);
   min-height: 20px;
 }
+
+.hermes-stat:empty { display: none; }
+
+/* Dot separators between non-empty segments. */
+.hermes-stat + .hermes-stat:not(:empty)::before {
+  content: "·";
+  margin-right: 10px;
+  color: var(--text-faint);
+  opacity: 0.6;
+}
+
+.hermes-stat-model { color: var(--text-muted); font-weight: 600; }
+.hermes-stat-state { margin-left: auto; }
