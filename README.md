@@ -5,9 +5,15 @@ panel** for [Hermes Agent](https://github.com/NousResearch/hermes-agent). Instea
 of emulating a terminal, it drives `hermes acp` over the **Agent Client Protocol
 (ACP)** and renders the conversation with Obsidian's own markdown renderer.
 
-> Plugin id: `hermes-console-jpmoo`. This fork replaced the original
-> xterm.js/node-pty terminal implementation with an ACP chat client. It is not
-> published to Community Plugins — install it manually (below).
+> **This is a personal fork** (plugin id `hermes-console-jpmoo`) of
+> [obsidian-hermes-console](https://github.com/dannyshmueli/obsidian-hermes-console),
+> which itself forked [Lean Terminal](https://github.com/polyipseity/obsidian-lean-terminal).
+> It replaced the original xterm.js/node-pty terminal with an ACP chat client and
+> is **not** published to Community Plugins — install it manually (below).
+>
+> ⚠️ **Vibe-coded.** This fork was built almost entirely through AI pair-programming,
+> driven by trial, error, and iteration rather than careful upfront design. It works
+> for my setup but is lightly tested and offered as-is — expect rough edges.
 
 ## Why a chat panel instead of a terminal
 
