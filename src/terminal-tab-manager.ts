@@ -226,14 +226,6 @@ function resolveTerminalTheme(settings: TerminalPluginSettings, registry: ThemeR
   if (settings.backgroundColor) {
     theme.background = settings.backgroundColor;
   }
-  // Replace black color with accent-aware color for backgrounds
-  // This makes ANSI black backgrounds (code 40) theme-aware instead of pure black
-  const isDark = isObsidianDark();
-  if (isDark) {
-    theme.black = "#0b4620"; // Dark green tint for dark mode
-  } else {
-    theme.black = "#d8f4e2"; // Light green tint for light mode
-  }
   return theme;
 }
 
@@ -958,11 +950,7 @@ export class TerminalTabManager {
       // Wire data: PTY -> xterm. Hermes busy/idle state is handled by the
       // hook status bridge, not by terminal escape sequences.
       pty.onData((data: string) => {
-        // Replace 256-color background 234 (Hermes black) with a lighter color
-        let filteredData = data;
-        // Replace background color 234 (dark gray/black) with color 220 (bright yellow)
-        filteredData = filteredData.replace(/\x1b\[48;5;234m/g, "\x1b[48;5;220m");
-        terminal.write(filteredData);
+        terminal.write(data);
       });
 
       // Wire data: xterm -> PTY. Autocomplete may consume data (returns true) to
