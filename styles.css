@@ -1180,6 +1180,69 @@ body.terminal-tab-bar-resizing {
   background: var(--background-primary);
 }
 
+/* Header: title + note-context toggle */
+.hermes-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+
+.hermes-chat-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-normal);
+}
+
+.hermes-context-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.hermes-context-switch {
+  width: 26px;
+  height: 15px;
+  border-radius: 999px;
+  background: var(--background-modifier-border);
+  position: relative;
+  transition: background 0.15s ease-out;
+  flex: 0 0 auto;
+}
+
+.hermes-context-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.15s ease-out, background 0.15s ease-out;
+}
+
+.hermes-context-toggle--on .hermes-context-switch { background: var(--interactive-accent); }
+.hermes-context-toggle--on .hermes-context-knob { transform: translateX(11px); background: #fff; }
+.hermes-context-toggle--on .hermes-context-label { color: var(--text-normal); }
+
+.hermes-context-info {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 50%;
+}
+.hermes-context-info:empty { display: none; }
+
 .hermes-chat-messages {
   flex: 1;
   min-height: 0;

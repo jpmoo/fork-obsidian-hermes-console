@@ -2,6 +2,7 @@ import {
   FileSystemAdapter,
   ItemView,
   MarkdownRenderer,
+  MarkdownView,
   Menu,
   Notice,
   WorkspaceLeaf,
@@ -31,6 +32,19 @@ export class HermesChatView extends ItemView {
 
   private turnStart = 0;
   private timeTimer: number | null = null;
+
+  // Note-context feature: a toggle in the header, plus the most recent
+  // markdown selection/cursor captured before focus moved to the chat.
+  private contextToggleEl!: HTMLElement;
+  private contextInfoEl!: HTMLElement;
+  private contextEnabled = false;
+  private lastNoteContext: {
+    path: string;
+    basename: string;
+    selection: string;
+    cursorLine: number;
+    around: string;
+  } | null = null;
 
   // The conversation is rendered as ordered segments in arrival order:
   // thought → text → tool → text → … Each segment is finalized (markdown
@@ -65,6 +79,15 @@ export class HermesChatView extends ItemView {
     container.empty();
     container.addClass("hermes-chat");
 
+    // Header — title (matches the pane/tab name) + note-context toggle.
+    const header = container.createDiv({ cls: "hermes-chat-header" });
+    header.createDiv({ cls: "hermes-chat-title", text: "Hermes Console" });
+    this.contextInfoEl = header.createDiv({ cls: "hermes-context-info" });
+    this.contextToggleEl = header.createDiv({ cls: "hermes-context-toggle" });
+    this.contextToggleEl.createDiv({ cls: "hermes-context-switch" }).createDiv({ cls: "hermes-context-knob" });
+    this.contextToggleEl.createSpan({ cls: "hermes-context-label", text: "Note context" });
+    this.contextToggleEl.addEventListener("click", () => this.toggleContext());
+
     this.messagesEl = container.createDiv({ cls: "hermes-chat-messages" });
 
     const inputRow = container.createDiv({ cls: "hermes-chat-input-row" });
@@ -90,6 +113,14 @@ export class HermesChatView extends ItemView {
     });
     this.inputEl.addEventListener("input", () => this.autoGrowInput());
     this.sendButton.addEventListener("click", () => void this.handleSend());
+
+    // Track the active note's selection/cursor so it's available after focus
+    // moves into the chat input. Captured continuously while a note is active.
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.captureNoteContext()));
+    this.registerEvent(this.app.workspace.on("file-open", () => this.captureNoteContext()));
+    this.registerDomEvent(document, "selectionchange", () => this.captureNoteContext());
+    this.captureNoteContext();
+    this.updateContextUI();
 
     // Connect in the background. Awaiting here would block Obsidian's
     // workspace restore on the multi-second `hermes acp` boot.
@@ -148,6 +179,10 @@ export class HermesChatView extends ItemView {
     this.autoGrowInput();
     this.addUserMessage(text);
 
+    // Prepend the active note's context when the toggle is on.
+    const contextBlock = this.buildContextBlock();
+    const prompt = contextBlock ? `${contextBlock}\n\n${text}` : text;
+
     this.turnActive = true;
     this.sendButton.disabled = true;
     this.setStatus("Thinking…");
@@ -155,7 +190,7 @@ export class HermesChatView extends ItemView {
     this.startTurnTimer();
 
     try {
-      const result = await this.client.prompt(text);
+      const result = await this.client.prompt(prompt);
       if (result.usage) this.updateTokens(result.usage);
       this.setStatus("Ready.");
     } catch (err) {
@@ -323,6 +358,63 @@ export class HermesChatView extends ItemView {
   }
 
   // --- helpers ---------------------------------------------------------
+
+  // --- note context ----------------------------------------------------
+
+  /** Remember the active markdown note's selection/cursor for later sends. */
+  private captureNoteContext(): void {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!view?.file) return; // chat focused / no note — keep the last capture
+    const editor = view.editor;
+    const cursor = editor.getCursor();
+    const from = Math.max(0, cursor.line - 10);
+    const to = Math.min(editor.lineCount() - 1, cursor.line + 10);
+    const around: string[] = [];
+    for (let i = from; i <= to; i++) around.push(editor.getLine(i));
+    this.lastNoteContext = {
+      path: view.file.path,
+      basename: view.file.basename,
+      selection: editor.getSelection(),
+      cursorLine: cursor.line,
+      around: around.join("\n"),
+    };
+    if (this.contextEnabled) this.updateContextUI();
+  }
+
+  private toggleContext(): void {
+    this.contextEnabled = !this.contextEnabled;
+    this.updateContextUI();
+  }
+
+  private updateContextUI(): void {
+    this.contextToggleEl.toggleClass("hermes-context-toggle--on", this.contextEnabled);
+    if (!this.contextEnabled) {
+      this.contextInfoEl.setText("");
+      return;
+    }
+    const c = this.lastNoteContext;
+    if (!c) {
+      this.contextInfoEl.setText("no active note");
+      return;
+    }
+    const kind = c.selection.trim() ? "selection" : `cursor · line ${c.cursorLine + 1}`;
+    this.contextInfoEl.setText(`${c.basename} · ${kind}`);
+  }
+
+  /** Build the context preamble sent to Hermes, or null when disabled/empty. */
+  private buildContextBlock(): string | null {
+    if (!this.contextEnabled || !this.lastNoteContext) return null;
+    const c = this.lastNoteContext;
+    const body = c.selection.trim()
+      ? `Selected text:\n"""\n${c.selection}\n"""`
+      : `Text around the cursor (line ${c.cursorLine + 1}):\n"""\n${c.around}\n"""`;
+    return [
+      "[Obsidian note context — provided automatically; treat as reference]",
+      `Note: ${c.basename} (${c.path})`,
+      body,
+      "[End note context]",
+    ].join("\n");
+  }
 
   private setStatus(text: string): void {
     this.stateEl.setText(text);
