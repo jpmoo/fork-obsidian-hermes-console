@@ -213,6 +213,15 @@ export class AcpClient {
     return this.sessionId;
   }
 
+  /** Forget the current session without creating a new one. The next prompt
+   *  lazily creates a fresh session — so an empty "new conversation" never
+   *  hits Hermes until the user actually sends something. */
+  clearSession(): void {
+    this.sessionId = null;
+    this.model = null;
+    this.availableModels = [];
+  }
+
   /** Switch the active model for this session. */
   async setModel(modelId: string): Promise<void> {
     if (!this.sessionId) throw new Error("ACP session not started");

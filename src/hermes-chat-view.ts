@@ -203,7 +203,7 @@ export class HermesChatView extends ItemView {
     const behavior = this.plugin.settings.startupBehavior;
 
     if (behavior === "new") {
-      await this.beginNewSession(cwd);
+      this.deferNewSession();
       return;
     }
 
@@ -217,7 +217,7 @@ export class HermesChatView extends ItemView {
       } catch (err) {
         console.warn("[Hermes] could not list sessions:", err);
       }
-      await this.beginNewSession(cwd);
+      this.deferNewSession();
       return;
     }
 
@@ -231,14 +231,14 @@ export class HermesChatView extends ItemView {
         console.warn("[Hermes] resume failed, starting fresh:", err);
       }
     }
-    await this.beginNewSession(cwd);
+    this.deferNewSession();
   }
 
-  private async beginNewSession(cwd: string): Promise<void> {
-    if (!this.client) return;
-    await this.client.newSession(cwd);
+  /** Prepare a blank conversation without creating a Hermes session — the
+   *  session is created lazily on the first send (see handleSend). */
+  private deferNewSession(): void {
+    this.client?.clearSession();
     this.updateModel();
-    await this.persistSessionId();
   }
 
   private async resumeSession(cwd: string, sessionId: string): Promise<void> {
@@ -269,6 +269,25 @@ export class HermesChatView extends ItemView {
       return;
     }
 
+    this.turnActive = true;
+    this.sendButton.disabled = true;
+
+    // Lazily create the Hermes session on first send, so a new conversation
+    // never hits Hermes until the user actually sends something.
+    if (!this.client.getSessionId()) {
+      this.setStatus("Starting conversation…");
+      try {
+        await this.client.newSession(this.cwd());
+        this.updateModel();
+        await this.persistSessionId();
+      } catch (err) {
+        this.setStatus(`Failed to start: ${err instanceof Error ? err.message : String(err)}`);
+        this.turnActive = false;
+        this.sendButton.disabled = false;
+        return;
+      }
+    }
+
     this.inputEl.value = "";
     this.autoGrowInput();
     this.addUserMessage(text);
@@ -277,8 +296,6 @@ export class HermesChatView extends ItemView {
     const contextBlock = this.buildContextBlock();
     const prompt = contextBlock ? `${contextBlock}\n\n${text}` : text;
 
-    this.turnActive = true;
-    this.sendButton.disabled = true;
     this.setStatus("Thinking…");
     this.resetSegments();
     this.startTurnTimer();
@@ -518,7 +535,8 @@ export class HermesChatView extends ItemView {
     }
     this.clearTranscript();
     this.clearStats();
-    await this.beginNewSession(this.cwd());
+    // Defer the Hermes session until the first message is sent.
+    this.deferNewSession();
     this.setStatus("Ready.");
     this.inputEl.focus();
   }
