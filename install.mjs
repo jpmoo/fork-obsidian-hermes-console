@@ -9,7 +9,7 @@ import { chmodSync, cpSync, mkdirSync, existsSync } from "fs";
 import { resolve, join } from "path";
 
 const vaultPath = process.argv[2] || "D:\\LOS Test";
-const pluginDir = join(vaultPath, ".obsidian", "plugins", "hermes-console");
+const pluginDir = join(vaultPath, ".obsidian", "plugins", "hermes-console-jpmoo");
 
 if (!existsSync(join(vaultPath, ".obsidian"))) {
   console.error(`Error: ${vaultPath} does not appear to be an Obsidian vault (no .obsidian folder)`);
