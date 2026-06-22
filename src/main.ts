@@ -1,6 +1,7 @@
 import { FileSystemAdapter, Plugin, TFolder, WorkspaceLeaf, addIcon, setIcon } from "obsidian";
 import { VIEW_TYPE_TERMINAL } from "./constants";
 import { TerminalView } from "./terminal-view";
+import { HermesChatView } from "./hermes-chat-view";
 import {
   TerminalSettingTab,
   DEFAULT_SETTINGS,
@@ -53,9 +54,9 @@ export default class TerminalPlugin extends Plugin {
     this.themeRegistry = new ThemeRegistry(pluginDir);
     await this.themeRegistry.load();
 
-    // Register the terminal view
+    // Register the Hermes chat view (ACP-driven native UI)
     this.registerView(VIEW_TYPE_TERMINAL, (leaf: WorkspaceLeaf) => {
-      return new TerminalView(leaf, this);
+      return new HermesChatView(leaf, this);
     });
 
     // Ribbon icon
@@ -301,14 +302,8 @@ export default class TerminalPlugin extends Plugin {
   }
 
   private newTab(): void {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    if (leaves.length > 0) {
-      const view = leaves[0].view as TerminalView;
-      view.createNewTab();
-    } else {
-      // Open console first, then it auto-creates a tab
-      void this.activateTerminal();
-    }
+    // Single chat session — just open/reveal the console.
+    void this.activateTerminal();
   }
 
   async openTerminalInNewPane(): Promise<void> {
@@ -332,7 +327,10 @@ export default class TerminalPlugin extends Plugin {
   private getActiveTabManager(): TerminalTabManager | null {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
     if (!leaves.length) return null;
-    return (leaves[0].view as TerminalView).getTabManager() ?? null;
+    const view = leaves[0].view;
+    // Chat view has no tab manager — tab commands are vestigial and no-op.
+    if (!(view instanceof TerminalView)) return null;
+    return view.getTabManager() ?? null;
   }
 
   private navigateTerminalTab(delta: -1 | 1): void {
@@ -386,9 +384,9 @@ export default class TerminalPlugin extends Plugin {
   private async openTerminalAt(cwd: string): Promise<void> {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
     if (existing.length > 0) {
-      const view = existing[0].view as TerminalView;
+      const view = existing[0].view;
       void this.app.workspace.revealLeaf(existing[0]);
-      view.createNewTab({ cwd });
+      if (view instanceof TerminalView) view.createNewTab({ cwd });
       return;
     }
 

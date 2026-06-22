@@ -1167,3 +1167,177 @@ body.terminal-tab-bar-resizing {
   font-style: italic;
 }
 
+
+/* ============================================================
+ * Hermes ACP chat view
+ * ============================================================ */
+
+.hermes-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  background: var(--background-primary);
+}
+
+.hermes-chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hermes-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.hermes-msg-role {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.hermes-msg-body {
+  line-height: 1.55;
+  color: var(--text-normal);
+  word-break: break-word;
+}
+
+.hermes-msg-body > :first-child { margin-top: 0; }
+.hermes-msg-body > :last-child { margin-bottom: 0; }
+
+.hermes-msg-user .hermes-msg-body {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.hermes-msg-assistant .hermes-msg-body {
+  padding: 0 2px;
+}
+
+.hermes-streaming {
+  white-space: pre-wrap;
+  color: var(--text-normal);
+}
+
+.hermes-streaming::after {
+  content: "▍";
+  color: var(--text-accent);
+  animation: hermes-blink 1s steps(2, start) infinite;
+}
+
+@keyframes hermes-blink { to { visibility: hidden; } }
+
+/* Collapsible reasoning */
+.hermes-thought {
+  border-left: 2px solid var(--background-modifier-border);
+  padding-left: 10px;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.hermes-thought summary {
+  cursor: pointer;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.hermes-thought-body {
+  white-space: pre-wrap;
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+/* Tool calls */
+.hermes-tool-call {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 5px 10px;
+}
+
+.hermes-tool-icon { opacity: 0.7; }
+.hermes-tool-title { flex: 1; color: var(--text-normal); }
+.hermes-tool-status {
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-faint);
+}
+
+/* Permission prompt */
+.hermes-permission {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--background-secondary);
+}
+
+.hermes-permission-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.hermes-permission-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Input row */
+.hermes-chat-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.hermes-chat-input {
+  flex: 1;
+  resize: none;
+  min-height: 36px;
+  max-height: 200px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.hermes-chat-input:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+.hermes-chat-send {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.hermes-chat-status {
+  padding: 4px 12px 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+  min-height: 20px;
+}
