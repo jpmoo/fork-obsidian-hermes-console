@@ -47,7 +47,7 @@ export class HermesChatView extends ItemView {
     basename: string;
     selection: string;
     cursorLine: number;
-    around: string;
+    fromCursor: string;
   } | null = null;
 
   // The conversation is rendered as ordered segments in arrival order:
@@ -617,16 +617,15 @@ export class HermesChatView extends ItemView {
     if (!view?.file) return; // chat focused / no note — keep the last capture
     const editor = view.editor;
     const cursor = editor.getCursor();
-    const from = Math.max(0, cursor.line - 10);
-    const to = Math.min(editor.lineCount() - 1, cursor.line + 10);
-    const around: string[] = [];
-    for (let i = from; i <= to; i++) around.push(editor.getLine(i));
+    // From the cursor line through the end of the note.
+    const lines: string[] = [];
+    for (let i = cursor.line; i < editor.lineCount(); i++) lines.push(editor.getLine(i));
     this.lastNoteContext = {
       path: view.file.path,
       basename: view.file.basename,
       selection: editor.getSelection(),
       cursorLine: cursor.line,
-      around: around.join("\n"),
+      fromCursor: lines.join("\n"),
     };
     if (this.contextEnabled) this.updateContextUI();
   }
@@ -647,7 +646,7 @@ export class HermesChatView extends ItemView {
       this.contextInfoEl.setText("sending: no active note");
       return;
     }
-    const kind = c.selection.trim() ? "selection" : `cursor · line ${c.cursorLine + 1}`;
+    const kind = c.selection.trim() ? "selection" : `from line ${c.cursorLine + 1} → end`;
     this.contextInfoEl.setText(`sending: ${c.basename} · ${kind}`);
   }
 
@@ -657,7 +656,7 @@ export class HermesChatView extends ItemView {
     const c = this.lastNoteContext;
     const body = c.selection.trim()
       ? `Selected text:\n"""\n${c.selection}\n"""`
-      : `Text around the cursor (line ${c.cursorLine + 1}):\n"""\n${c.around}\n"""`;
+      : `Note text from the cursor (line ${c.cursorLine + 1}) to the end:\n"""\n${c.fromCursor}\n"""`;
     return [
       "[Obsidian note context — provided automatically; treat as reference]",
       `Note: ${c.basename} (${c.path})`,
