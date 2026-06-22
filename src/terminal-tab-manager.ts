@@ -959,16 +959,17 @@ export class TerminalTabManager {
       // hook status bridge, not by terminal escape sequences.
       pty.onData((data: string) => {
         // Replace reverse video (ESC[7m) with accent-colored background instead
-        const accentColor = isObsidianDark() ? "43;34;32" : "216;244;226"; // RGB for accent
+        // Use bright colors to test visibility
         let filteredData = data;
         const hasReverseVideo = /\x1b\[7m/.test(data);
         if (hasReverseVideo) {
           console.log("Replacing reverse video with accent color");
+          // Replace with BRIGHT GREEN background (255,255,0) and dark text (0,0,0) as test
+          filteredData = filteredData.replace(/\x1b\[7m/g, "\x1b[48;2;255;255;0m\x1b[38;2;0;0;0m"); // Bright yellow bg, black text
+          filteredData = filteredData.replace(/\x1b\[27m/g, "\x1b[0m"); // Reset
+        } else {
+          filteredData = data;
         }
-        // Replace reverse video start with accent background color
-        filteredData = filteredData.replace(/\x1b\[7m/g, `\x1b[48;2;${accentColor}m`);
-        // Replace reverse video end with reset
-        filteredData = filteredData.replace(/\x1b\[27m/g, "\x1b[0m");
         terminal.write(filteredData);
       });
 
