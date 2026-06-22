@@ -21,7 +21,6 @@ export interface HermesPluginSettings {
 
 export type StartupBehavior =
   | "resume-last-obsidian" // the conversation you last had in this plugin
-  | "resume-last-hermes"   // the most recent Hermes session (any client)
   | "new";                 // a fresh conversation
 
 export const DEFAULT_SETTINGS: HermesPluginSettings = {
@@ -32,7 +31,7 @@ export const DEFAULT_SETTINGS: HermesPluginSettings = {
   startupBehavior: "resume-last-obsidian",
 };
 
-const STARTUP_BEHAVIORS: StartupBehavior[] = ["resume-last-obsidian", "resume-last-hermes", "new"];
+const STARTUP_BEHAVIORS: StartupBehavior[] = ["resume-last-obsidian", "new"];
 
 const LOCATIONS: ConsoleLocation[] = ["bottom", "right", "tab", "split-right"];
 
@@ -86,7 +85,6 @@ export class HermesSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         dropdown
           .addOption("resume-last-obsidian", "Resume my last conversation here")
-          .addOption("resume-last-hermes", "Resume most recent Hermes session")
           .addOption("new", "Start a new conversation")
           .setValue(this.plugin.settings.startupBehavior)
           .onChange(async (value) => {
@@ -97,7 +95,11 @@ export class HermesSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Conversations in history dropdown")
-      .setDesc("How many recent Hermes conversations to list in the \"continue\" dropdown (1–50).")
+      .setDesc(
+        "How many recent conversations to list in the \"continue\" dropdown (1–50). " +
+        "Only conversations started in this panel appear — sessions from the Hermes " +
+        "desktop app or terminal are not listed.",
+      )
       .addText((text) => {
         text
           .setPlaceholder("10")

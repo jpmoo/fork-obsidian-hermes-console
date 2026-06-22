@@ -207,20 +207,6 @@ export class HermesChatView extends ItemView {
       return;
     }
 
-    if (behavior === "resume-last-hermes" && this.client?.supportsLoad) {
-      try {
-        const sessions = await this.client.listSessions();
-        if (sessions[0]) {
-          await this.resumeSession(cwd, sessions[0].sessionId);
-          return;
-        }
-      } catch (err) {
-        console.warn("[Hermes] could not list sessions:", err);
-      }
-      this.deferNewSession();
-      return;
-    }
-
     // resume-last-obsidian (default)
     const id = this.plugin.settings.lastSessionId;
     if (id && this.client?.supportsLoad) {
