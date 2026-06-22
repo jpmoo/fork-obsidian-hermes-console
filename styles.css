@@ -1168,3 +1168,25 @@ body.terminal-tab-bar-resizing {
   font-style: italic;
 }
 
+/* Theme-aware ANSI background colors */
+.terminal-session .xterm span[style*="background-color: rgb(0, 0, 0)"],
+.terminal-session .xterm span[style*="background: rgb(0, 0, 0)"],
+.terminal-session .xterm span[style*="background-color: #000"],
+.terminal-session .xterm span[style*="background: #000"] {
+  background-color: color-mix(in srgb, var(--hermes-accent) 22%, var(--background-primary)) !important;
+}
+
+body.theme-dark .terminal-session .xterm span[style*="background-color: rgb(0, 0, 0)"],
+body.theme-dark .terminal-session .xterm span[style*="background: rgb(0, 0, 0)"],
+body.theme-dark .terminal-session .xterm span[style*="background-color: #000"],
+body.theme-dark .terminal-session .xterm span[style*="background: #000"] {
+  background-color: color-mix(in srgb, var(--hermes-accent) 18%, #0b2a17) !important;
+}
+
+body.theme-light .terminal-session .xterm span[style*="background-color: rgb(0, 0, 0)"],
+body.theme-light .terminal-session .xterm span[style*="background: rgb(0, 0, 0)"],
+body.theme-light .terminal-session .xterm span[style*="background-color: #000"],
+body.theme-light .terminal-session .xterm span[style*="background: #000"] {
+  background-color: color-mix(in srgb, var(--interactive-accent) 16%, #dff7e8) !important;
+}
+
