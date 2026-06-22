@@ -961,6 +961,10 @@ export class TerminalTabManager {
         // Replace pure black RGB backgrounds with accent color
         const accentColor = isObsidianDark() ? "43;34;32" : "216;244;226"; // RGB for accent
         let filteredData = data;
+        const hasBlackBg = /\x1b\[48;2;0;0;0/.test(data);
+        if (hasBlackBg) {
+          console.log("Found black background ANSI code, replacing...");
+        }
         // Match ANSI escape codes with or without 'm' terminator
         filteredData = filteredData.replace(/\x1b\[48;2;0;0;0m?/g, `\x1b[48;2;${accentColor}m`); // RGB bg black
         filteredData = filteredData.replace(/\x1b\[38;2;0;0;0m?/g, `\x1b[38;2;${accentColor}m`); // RGB fg black
