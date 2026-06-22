@@ -963,12 +963,12 @@ export class TerminalTabManager {
         let filteredData = data;
         const hasReverseVideo = /\x1b\[7m/.test(data);
         if (hasReverseVideo) {
-          console.log("Replacing reverse video with accent color");
+          console.log("Found reverse video, replacing...");
+          console.log("Before:", JSON.stringify(data.substring(0, 50)));
           // Replace with BRIGHT GREEN background (255,255,0) and dark text (0,0,0) as test
           filteredData = filteredData.replace(/\x1b\[7m/g, "\x1b[48;2;255;255;0m\x1b[38;2;0;0;0m"); // Bright yellow bg, black text
           filteredData = filteredData.replace(/\x1b\[27m/g, "\x1b[0m"); // Reset
-        } else {
-          filteredData = data;
+          console.log("After:", JSON.stringify(filteredData.substring(0, 50)));
         }
         terminal.write(filteredData);
       });
