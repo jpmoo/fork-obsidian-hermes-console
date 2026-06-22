@@ -104,7 +104,7 @@ export class AcpClient {
       stderrTail = (stderrTail + d.toString()).slice(-2000);
     });
     proc.on("error", (err: Error) => {
-      this.failPending(new Error(`Could not start "${bin}": ${err.message}`));
+      this.failPending(new Error(`Could not start "${this.hermesPath}": ${err.message}`));
       this.callbacks.onError(err.message);
     });
     proc.on("exit", (code: number | null) => {
