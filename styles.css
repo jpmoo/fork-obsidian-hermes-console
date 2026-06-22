@@ -1319,18 +1319,6 @@ body.terminal-tab-bar-resizing {
   padding: 0 2px;
 }
 
-.hermes-streaming {
-  white-space: pre-wrap;
-  color: var(--text-normal);
-}
-
-.hermes-streaming::after {
-  content: "▍";
-  color: var(--text-accent);
-  animation: hermes-blink 1s steps(2, start) infinite;
-}
-
-@keyframes hermes-blink { to { visibility: hidden; } }
 
 /* Collapsible reasoning */
 .hermes-thought {

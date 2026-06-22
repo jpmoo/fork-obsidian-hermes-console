@@ -55,6 +55,7 @@ export class HermesChatView extends ItemView {
   private activeTextBuf = "";
   private activeThoughtEl: HTMLElement | null = null;
   private activeThoughtBuf = "";
+  private streamRenderScheduled = false;
   // Used only during session-load replay, to rebuild past user messages.
   private activeUserEl: HTMLElement | null = null;
   private activeUserBuf = "";
@@ -350,27 +351,42 @@ export class HermesChatView extends ItemView {
     if (!this.activeTextEl) {
       const el = this.messagesEl.createDiv({ cls: "hermes-msg hermes-msg-assistant" });
       el.createDiv({ cls: "hermes-msg-role", text: "Hermes" });
-      this.activeTextEl = el.createDiv({ cls: "hermes-msg-body hermes-streaming" });
+      this.activeTextEl = el.createDiv({ cls: "hermes-msg-body" });
       this.activeTextBuf = "";
     }
     this.activeTextBuf += text;
-    this.activeTextEl.setText(this.activeTextBuf);
-    this.scrollToBottom();
+    this.scheduleStreamRender();
+  }
+
+  /** Re-render the streaming buffer as markdown, throttled to one paint. */
+  private scheduleStreamRender(): void {
+    if (this.streamRenderScheduled) return;
+    this.streamRenderScheduled = true;
+    window.requestAnimationFrame(() => {
+      this.streamRenderScheduled = false;
+      if (this.activeTextEl) this.renderMarkdownInto(this.activeTextEl, this.activeTextBuf);
+      this.scrollToBottom();
+    });
   }
 
   /** Render the current text segment as markdown and close it. */
   private finalizeTextSegment(): void {
     if (this.activeTextEl) {
       if (this.activeTextBuf.trim()) {
-        this.activeTextEl.removeClass("hermes-streaming");
-        this.activeTextEl.empty();
-        void MarkdownRenderer.render(this.app, this.activeTextBuf, this.activeTextEl, "", this);
+        this.renderMarkdownInto(this.activeTextEl, this.activeTextBuf);
       } else {
         this.activeTextEl.parentElement?.remove();
       }
     }
     this.activeTextEl = null;
     this.activeTextBuf = "";
+  }
+
+  /** Replace an element's content with rendered markdown (leading blank
+   *  lines trimmed so there's no gap under the role band while streaming). */
+  private renderMarkdownInto(el: HTMLElement, markdown: string): void {
+    el.empty();
+    void MarkdownRenderer.render(this.app, markdown.replace(/^\s+/, ""), el, "", this);
   }
 
   private appendThought(text: string): void {
