@@ -958,7 +958,12 @@ export class TerminalTabManager {
       // Wire data: PTY -> xterm. Hermes busy/idle state is handled by the
       // hook status bridge, not by terminal escape sequences.
       pty.onData((data: string) => {
-        terminal.write(data);
+        // Replace pure black RGB backgrounds with accent color
+        const accentColor = isObsidianDark() ? "43;34;32" : "216;244;226"; // RGB for accent
+        const filteredData = data
+          .replace(/\x1b\[48;2;0;0;0m/g, `\x1b[48;2;${accentColor}m`) // RGB bg black
+          .replace(/\x1b\[38;2;0;0;0m/g, `\x1b[38;2;${accentColor}m`); // RGB fg black (rare)
+        terminal.write(filteredData);
       });
 
       // Wire data: xterm -> PTY. Autocomplete may consume data (returns true) to
