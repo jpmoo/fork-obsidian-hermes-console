@@ -288,3 +288,8 @@ export function isObsidianDark(): boolean {
   return activeDocument.body.classList.contains("theme-dark");
 }
 
+/** Get the appropriate Obsidian theme name based on current Obsidian theme. */
+export function getObsidianMatchingTheme(): string {
+  return isObsidianDark() ? "obsidian-dark" : "obsidian-light";
+}
+

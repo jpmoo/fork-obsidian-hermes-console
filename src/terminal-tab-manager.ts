@@ -7,7 +7,7 @@ import { SerializeAddon } from "@xterm/addon-serialize";
 import { SearchAddon } from "@xterm/addon-search";
 import type { IDisposable } from "@xterm/xterm";
 import { PtyManager } from "./pty-manager";
-import { isObsidianDark } from "./themes";
+import { isObsidianDark, getObsidianMatchingTheme } from "./themes";
 import { mixHex } from "./color-utils";
 import { findTabColor, DEFAULT_TINT_STRENGTH, MAX_TINT_STRENGTH } from "./tab-colors";
 import { ThemeRegistry } from "./theme-registry";
@@ -217,7 +217,12 @@ function playNotificationSound(sound: NotificationSound, volume: number): void {
 const ESC = "\x1b";
 
 function resolveTerminalTheme(settings: TerminalPluginSettings, registry: ThemeRegistry) {
-  const theme = registry.get(settings.theme);
+  let themeName = settings.theme;
+  // Auto-detect Obsidian theme if using built-in Obsidian theme
+  if (themeName === "obsidian-dark" || themeName === "obsidian-light") {
+    themeName = getObsidianMatchingTheme();
+  }
+  const theme = registry.get(themeName);
   if (settings.backgroundColor) {
     theme.background = settings.backgroundColor;
   }
