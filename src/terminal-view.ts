@@ -1,11 +1,10 @@
-import { FileSystemAdapter, ItemView, Notice, WorkspaceLeaf, setIcon, type ViewStateResult } from "obsidian";
+import { FileSystemAdapter, ItemView, Notice, WorkspaceLeaf, type ViewStateResult } from "obsidian";
 import { VIEW_TYPE_TERMINAL } from "./constants";
 import { TerminalTabManager, type TabManagerOptions, type CreateTabOpts } from "./terminal-tab-manager";
 import { pushRecentSession } from "./recent-sessions";
 import type TerminalPlugin from "./main";
 import type { SavedViewState } from "./session-state";
 import { clampVerticalTabBarWidth } from "./settings";
-import { HERMES_SETTINGS_ICON_ID } from "./hermes-icon";
 import {
   getTerminalViewCloseBlockedMessage,
   shouldBlockTerminalViewClose,
@@ -64,28 +63,7 @@ export class TerminalView extends ItemView {
     const shellEl = container.createDiv({ cls: "terminal-shell" });
     const shellHeaderEl = shellEl.createDiv({ cls: "terminal-shell-header" });
 
-    const brandEl = shellHeaderEl.createDiv({ cls: "terminal-shell-brand" });
-    const brandIconEl = brandEl.createSpan({
-      cls: "terminal-shell-brand-icon",
-      attr: { "aria-hidden": "true" },
-    });
-    const brandTextEl = brandEl.createDiv({ cls: "terminal-shell-brand-text" });
-    brandTextEl.createSpan({ cls: "terminal-shell-wordmark", text: "HERMES" });
-    const brandSubtitleEl = brandTextEl.createSpan({ cls: "terminal-shell-subtitle" });
-    brandSubtitleEl.createSpan({ cls: "terminal-shell-subtitle-text", text: "Console for Obsidian" });
-
-    shellHeaderEl.createDiv({ cls: "terminal-shell-divider" });
-
     const contextHeaderEl = shellHeaderEl.createDiv({ cls: "terminal-context-header" });
-
-    const settingsButton = shellHeaderEl.createEl("button", {
-      cls: "terminal-shell-settings-button",
-    });
-    settingsButton.type = "button";
-    settingsButton.title = "Open Hermes Console settings";
-    settingsButton.setAttribute("aria-label", "Open Hermes Console settings");
-    setIcon(settingsButton, HERMES_SETTINGS_ICON_ID);
-    settingsButton.addEventListener("click", () => this.openSettingsTab());
 
     const shellBodyEl = shellEl.createDiv({ cls: "terminal-shell-body" });
     const tabBarEl = shellBodyEl.createDiv({ cls: "terminal-tab-bar" });
@@ -157,22 +135,6 @@ export class TerminalView extends ItemView {
         }
       }, 10000)
     );
-  }
-
-  private openSettingsTab(): void {
-    const setting = (this.app as typeof this.app & {
-      setting?: {
-        open?: () => void;
-        openTabById?: (id: string) => void;
-      };
-    }).setting;
-
-    try {
-      setting?.open?.();
-      setting?.openTabById?.(this.plugin.manifest.id);
-    } catch (err) {
-      console.error("Hermes Console: failed to open settings", err);
-    }
   }
 
   // async: satisfies ItemView.onClose() → Promise<void>; no actual async work here
@@ -364,7 +326,7 @@ export class TerminalView extends ItemView {
         bufferSerial: tab.bufferSerial,
         resumeCommand: tab.resumeCommand,
         pinned: tab.pinned,
-        restored: !state.runStartupCommand,
+        restored: !state.runStartupCommand && !!tab.bufferSerial,
       });
     }
 

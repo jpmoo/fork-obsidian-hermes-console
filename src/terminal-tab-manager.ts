@@ -1119,8 +1119,9 @@ export class TerminalTabManager {
         this.activeId = null;
       }
     }
-    if (this.sessions.length === 0 && this.onTabsEmpty) {
-      this.onTabsEmpty();
+    if (this.sessions.length === 0) {
+      // Create a new tab instead of closing the plugin when last tab is closed
+      this.createTab();
       return;
     }
     this.renderTabBar();
@@ -1155,8 +1156,9 @@ export class TerminalTabManager {
       }
     }
 
-    if (this.sessions.length === 0 && this.onTabsEmpty) {
-      this.onTabsEmpty();
+    if (this.sessions.length === 0) {
+      // Create a new tab instead of closing the plugin when last tab is closed
+      this.createTab();
       return;
     }
 
@@ -1325,8 +1327,9 @@ export class TerminalTabManager {
       }
     }
 
-    if (this.sessions.length === 0 && this.onTabsEmpty) {
-      this.onTabsEmpty();
+    if (this.sessions.length === 0) {
+      // Create a new tab instead of closing the plugin when last tab is closed
+      this.createTab();
       return;
     }
 
