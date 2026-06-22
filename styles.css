@@ -1207,6 +1207,21 @@ body.terminal-tab-bar-resizing {
   user-select: none;
 }
 
+.hermes-chat-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 5px;
+  box-shadow: none;
+}
+.hermes-chat-clear:hover { color: var(--text-error); background: var(--background-modifier-hover); }
+.hermes-chat-clear svg { width: 15px; height: 15px; }
+
 .hermes-context-switch {
   width: 26px;
   height: 15px;

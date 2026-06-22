@@ -11,6 +11,8 @@ export interface HermesPluginSettings {
   defaultLocation: ConsoleLocation;
   /** Command name or absolute path used to launch Hermes. Empty = "hermes". */
   hermesPath: string;
+  /** Hermes session id to resume on next open (chat persistence). */
+  lastSessionId?: string;
 }
 
 export const DEFAULT_SETTINGS: HermesPluginSettings = {
@@ -30,6 +32,7 @@ export function normalizeSettings(stored: unknown): HermesPluginSettings {
     settings.defaultLocation = source.defaultLocation as ConsoleLocation;
   }
   if (typeof source.hermesPath === "string") settings.hermesPath = source.hermesPath;
+  if (typeof source.lastSessionId === "string") settings.lastSessionId = source.lastSessionId;
   return settings;
 }
 

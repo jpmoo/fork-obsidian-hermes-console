@@ -105,8 +105,13 @@ export class AcpClient {
     private readonly hermesPath = "hermes",
   ) {}
 
-  /** Spawn `hermes acp` in the given working directory and run the handshake. */
-  async start(cwd: string): Promise<void> {
+  /**
+   * Spawn `hermes acp` and run the handshake. If `resumeSessionId` is given and
+   * the agent supports it, resume that Hermes session (which replays the prior
+   * conversation as session/update notifications and restores context);
+   * otherwise create a fresh session. Returns true if a session was resumed.
+   */
+  async start(cwd: string, resumeSessionId?: string): Promise<boolean> {
     const { spawn } = window.require("child_process") as { spawn: SpawnFn };
 
     // Run hermes through the user's login shell so it inherits the SAME
@@ -151,26 +156,54 @@ export class AcpClient {
 
     // Bound the handshake — `hermes acp` boots MCP servers first and can
     // stall; without a ceiling the UI would wait forever on "Starting…".
-    await this.request("initialize", {
+    const init = (await this.request("initialize", {
       protocolVersion: 1,
       clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } },
-    }, 60000);
+    }, 60000)) as { agentCapabilities?: { loadSession?: boolean } };
+    const canLoad = init.agentCapabilities?.loadSession === true;
 
-    const newSession = (await this.request("session/new", {
-      cwd,
-      mcpServers: [],
-    }, 60000)) as {
-      sessionId: string;
+    type SessionResult = {
+      sessionId?: string;
       models?: { currentModelId?: string; availableModels?: AcpAvailableModel[] };
     };
-    this.sessionId = newSession.sessionId;
 
-    const models = newSession.models;
-    this.availableModels = models?.availableModels ?? [];
-    if (models?.currentModelId) {
+    if (resumeSessionId && canLoad) {
+      try {
+        const loaded = (await this.request("session/load", {
+          sessionId: resumeSessionId,
+          cwd,
+          mcpServers: [],
+        }, 60000)) as SessionResult;
+        this.sessionId = resumeSessionId;
+        this.applyModels(loaded.models);
+        return true;
+      } catch (err) {
+        console.warn("[Hermes ACP] resume failed, starting fresh:", err);
+      }
+    }
+
+    const created = (await this.request("session/new", {
+      cwd,
+      mcpServers: [],
+    }, 60000)) as SessionResult;
+    this.sessionId = created.sessionId ?? null;
+    this.applyModels(created.models);
+    return false;
+  }
+
+  /** Record current/available models from a session result (if present). */
+  private applyModels(models?: { currentModelId?: string; availableModels?: AcpAvailableModel[] }): void {
+    if (!models) return;
+    this.availableModels = models.availableModels ?? this.availableModels;
+    if (models.currentModelId) {
       const match = this.availableModels.find((m) => m.modelId === models.currentModelId);
       this.model = { id: models.currentModelId, name: match?.name ?? models.currentModelId };
     }
+  }
+
+  /** The active Hermes session id (for persistence/resume). */
+  getSessionId(): string | null {
+    return this.sessionId;
   }
 
   /** Switch the active model for this session. */

@@ -6,6 +6,7 @@ import {
   Menu,
   Notice,
   WorkspaceLeaf,
+  setIcon,
 } from "obsidian";
 import { VIEW_TYPE_TERMINAL } from "./constants";
 import { AcpClient, type AcpSessionUpdate, type AcpPermissionRequest } from "./acp-client";
@@ -54,6 +55,9 @@ export class HermesChatView extends ItemView {
   private activeTextBuf = "";
   private activeThoughtEl: HTMLElement | null = null;
   private activeThoughtBuf = "";
+  // Used only during session-load replay, to rebuild past user messages.
+  private activeUserEl: HTMLElement | null = null;
+  private activeUserBuf = "";
   private turnActive = false;
   private connected = false;
 
@@ -86,6 +90,11 @@ export class HermesChatView extends ItemView {
     this.contextToggleEl.createDiv({ cls: "hermes-context-switch" }).createDiv({ cls: "hermes-context-knob" });
     this.contextToggleEl.createSpan({ cls: "hermes-context-label", text: "Note context" });
     this.contextToggleEl.addEventListener("click", () => this.toggleContext());
+
+    const clearBtn = header.createEl("button", { cls: "hermes-chat-clear", attr: { "aria-label": "Clear conversation" } });
+    setIcon(clearBtn, "trash-2");
+    clearBtn.title = "Clear conversation";
+    clearBtn.addEventListener("click", () => void this.clearConversation());
 
     // Context detail on its own row beneath the header (single truncated line).
     this.contextInfoEl = container.createDiv({ cls: "hermes-context-info" });
@@ -157,9 +166,20 @@ export class HermesChatView extends ItemView {
     );
 
     try {
-      await this.client.start(cwd);
+      const resumeId = this.plugin.settings.lastSessionId;
+      if (resumeId) this.setStatus("Resuming previous conversation…");
+      const resumed = await this.client.start(cwd, resumeId);
       this.connected = true;
       this.updateModel();
+
+      // Persist the (possibly new) session id for next time.
+      const sid = this.client.getSessionId();
+      if (sid && sid !== this.plugin.settings.lastSessionId) {
+        this.plugin.settings.lastSessionId = sid;
+        await this.plugin.saveSettings();
+      }
+      // Replay (on resume) arrives during start(); close the last open segment.
+      if (resumed) this.finalizeSegments();
       this.setStatus("Ready.");
       this.inputEl.focus();
     } catch (err) {
@@ -211,11 +231,21 @@ export class HermesChatView extends ItemView {
 
   private handleUpdate(update: AcpSessionUpdate): void {
     switch (update.sessionUpdate) {
+      case "user_message_chunk": {
+        // Emitted when Hermes replays history on session/load. A new user
+        // message closes the previous turn's assistant text/thought segments.
+        this.finalizeTextSegment();
+        this.activeThoughtEl = null;
+        this.appendUserText(update.content?.text ?? "");
+        break;
+      }
       case "agent_message_chunk": {
+        this.finalizeUserSegment();
         this.appendText(update.content?.text ?? "");
         break;
       }
       case "agent_thought_chunk": {
+        this.finalizeUserSegment();
         this.appendThought(update.content?.text ?? "");
         break;
       }
@@ -223,6 +253,7 @@ export class HermesChatView extends ItemView {
       case "tool_call_update": {
         // A tool boundary ends the current text/thought segment so later text
         // renders as its own block below the tool, preserving order.
+        this.finalizeUserSegment();
         this.finalizeTextSegment();
         this.activeThoughtEl = null;
         this.upsertToolCall(update);
@@ -277,13 +308,39 @@ export class HermesChatView extends ItemView {
     this.activeTextBuf = "";
     this.activeThoughtEl = null;
     this.activeThoughtBuf = "";
+    this.activeUserEl = null;
+    this.activeUserBuf = "";
   }
 
-  /** Finalize any open text/thought segment at the end of a turn. */
+  /** Finalize any open user/text/thought segment at the end of a turn. */
   private finalizeSegments(): void {
+    this.finalizeUserSegment();
     this.finalizeTextSegment();
     this.activeThoughtEl = null;
     this.scrollToBottom();
+  }
+
+  /** Accumulate a replayed user message (session/load) into a user bubble. */
+  private appendUserText(text: string): void {
+    if (!text) return;
+    if (!this.activeUserEl) {
+      const el = this.messagesEl.createDiv({ cls: "hermes-msg hermes-msg-user" });
+      el.createDiv({ cls: "hermes-msg-role", text: "You" });
+      this.activeUserEl = el.createDiv({ cls: "hermes-msg-body" });
+      this.activeUserBuf = "";
+    }
+    this.activeUserBuf += text;
+    this.activeUserEl.setText(this.activeUserBuf);
+    this.scrollToBottom();
+  }
+
+  private finalizeUserSegment(): void {
+    if (this.activeUserEl && this.activeUserBuf.trim()) {
+      this.activeUserEl.empty();
+      void MarkdownRenderer.render(this.app, this.activeUserBuf, this.activeUserEl, "", this);
+    }
+    this.activeUserEl = null;
+    this.activeUserBuf = "";
   }
 
   private appendText(text: string): void {
@@ -360,6 +417,31 @@ export class HermesChatView extends ItemView {
   }
 
   // --- helpers ---------------------------------------------------------
+
+  /** Clear the transcript and start a fresh Hermes session (with confirm). */
+  private async clearConversation(): Promise<void> {
+    if (this.turnActive) {
+      new Notice("Wait for the current turn to finish before clearing.");
+      return;
+    }
+    if (!window.confirm("Clear this conversation and start a new one? This cannot be undone.")) {
+      return;
+    }
+    this.client?.dispose();
+    this.client = null;
+    this.connected = false;
+    this.messagesEl.empty();
+    this.resetSegments();
+    this.tokensEl.setText("");
+    this.timeEl.setText("");
+    this.ctxEl.setText("");
+    // Drop the persisted session so connect() starts fresh.
+    if (this.plugin.settings.lastSessionId) {
+      this.plugin.settings.lastSessionId = undefined;
+      await this.plugin.saveSettings();
+    }
+    await this.connect();
+  }
 
   // --- note context ----------------------------------------------------
 
