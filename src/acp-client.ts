@@ -86,15 +86,17 @@ export class AcpClient {
       if (!this.disposed) this.callbacks.onExit(code);
     });
 
+    // Bound the handshake — `hermes acp` boots MCP servers first and can
+    // stall; without a ceiling the UI would wait forever on "Starting…".
     await this.request("initialize", {
       protocolVersion: 1,
       clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } },
-    });
+    }, 60000);
 
     const newSession = (await this.request("session/new", {
       cwd,
       mcpServers: [],
-    })) as { sessionId: string };
+    }, 60000)) as { sessionId: string };
     this.sessionId = newSession.sessionId;
   }
 
@@ -215,10 +217,21 @@ export class AcpClient {
     }
   }
 
-  private request(method: string, params: unknown): Promise<unknown> {
+  private request(method: string, params: unknown, timeoutMs?: number): Promise<unknown> {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      if (timeoutMs) {
+        timer = setTimeout(() => {
+          if (this.pending.delete(id)) {
+            reject(new Error(`ACP request "${method}" timed out after ${timeoutMs}ms`));
+          }
+        }, timeoutMs);
+      }
+      this.pending.set(id, {
+        resolve: (v) => { if (timer) clearTimeout(timer); resolve(v); },
+        reject: (e) => { if (timer) clearTimeout(timer); reject(e); },
+      });
       this.send({ jsonrpc: "2.0", id, method, params });
     });
   }

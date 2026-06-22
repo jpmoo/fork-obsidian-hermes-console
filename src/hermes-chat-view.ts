@@ -71,7 +71,9 @@ export class HermesChatView extends ItemView {
     this.inputEl.addEventListener("input", () => this.autoGrowInput());
     this.sendButton.addEventListener("click", () => void this.handleSend());
 
-    await this.connect();
+    // Connect in the background. Awaiting here would block Obsidian's
+    // workspace restore on the multi-second `hermes acp` boot.
+    void this.connect();
   }
 
   async onClose(): Promise<void> {
