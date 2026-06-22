@@ -86,22 +86,35 @@ export class AcpClient {
     // `exec` replaces the shell with hermes so stdout stays a clean JSON
     // stream; any rc-file chatter precedes exec and is skipped by the parser.
     const shell = process.env.SHELL || "/bin/zsh";
-    const proc = spawn(shell, ["-lc", `exec ${shellQuote(bin)} acp`], {
+    const command = `exec ${shellQuote(bin)} acp`;
+    console.log("[Hermes ACP] spawn", { shell, command, cwd });
+    const proc = spawn(shell, ["-lc", command], {
       cwd,
       stdio: ["pipe", "pipe", "pipe"],
       env: this.buildEnv(),
     });
     this.proc = proc;
 
+    // Capture stderr — hermes logs there, and the actual cause of a non-zero
+    // exit (e.g. "command not found") lives here, not in the exit code alone.
+    let stderrTail = "";
     proc.stdout?.on("data", (d: Buffer) => this.onData(d.toString()));
-    proc.stderr?.on("data", () => { /* hermes logs to stderr; ignored */ });
+    proc.stderr?.on("data", (d: Buffer) => {
+      stderrTail = (stderrTail + d.toString()).slice(-2000);
+    });
     proc.on("error", (err: Error) => {
-      // Fail any in-flight handshake so start() rejects instead of hanging.
       this.failPending(new Error(`Could not start "${bin}": ${err.message}`));
       this.callbacks.onError(err.message);
     });
     proc.on("exit", (code: number | null) => {
-      if (!this.disposed) this.callbacks.onExit(code);
+      if (this.disposed) return;
+      if (code && code !== 0) {
+        console.error(`[Hermes ACP] exited ${code}. stderr:\n${stderrTail}`);
+        const lastLine = stderrTail.trim().split("\n").pop() ?? "";
+        this.failPending(new Error(`Hermes exited (code ${code}): ${lastLine}`));
+        this.callbacks.onError(`Hermes exited (code ${code}). ${lastLine}`);
+      }
+      this.callbacks.onExit(code);
     });
 
     // Bound the handshake — `hermes acp` boots MCP servers first and can
