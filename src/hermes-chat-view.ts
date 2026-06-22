@@ -28,6 +28,7 @@ export class HermesChatView extends ItemView {
   private thoughtBodyEl: HTMLElement | null = null;
   private thoughtText = "";
   private turnActive = false;
+  private connected = false;
 
   constructor(leaf: WorkspaceLeaf, plugin: HermesPlugin) {
     super(leaf);
@@ -104,6 +105,7 @@ export class HermesChatView extends ItemView {
 
     try {
       await this.client.start(cwd);
+      this.connected = true;
       this.setStatus("Ready.");
       this.inputEl.focus();
     } catch (err) {
@@ -115,7 +117,11 @@ export class HermesChatView extends ItemView {
 
   private async handleSend(): Promise<void> {
     const text = this.inputEl.value.trim();
-    if (!text || !this.client || this.turnActive) return;
+    if (!text || this.turnActive) return;
+    if (!this.client || !this.connected) {
+      this.setStatus("Hermes is still starting — please wait…");
+      return;
+    }
 
     this.inputEl.value = "";
     this.autoGrowInput();

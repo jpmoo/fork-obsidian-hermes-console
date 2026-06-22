@@ -72,16 +72,21 @@ export class AcpClient {
   /** Spawn `hermes acp` in the given working directory and run the handshake. */
   async start(cwd: string): Promise<void> {
     const { spawn } = window.require("child_process") as { spawn: SpawnFn };
-    const proc = spawn(this.hermesPath, ["acp"], {
+    const bin = await this.resolveBinary(this.hermesPath);
+    const proc = spawn(bin, ["acp"], {
       cwd,
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env },
+      env: this.buildEnv(),
     });
     this.proc = proc;
 
     proc.stdout?.on("data", (d: Buffer) => this.onData(d.toString()));
     proc.stderr?.on("data", () => { /* hermes logs to stderr; ignored */ });
-    proc.on("error", (err: Error) => this.callbacks.onError(err.message));
+    proc.on("error", (err: Error) => {
+      // Fail any in-flight handshake so start() rejects instead of hanging.
+      this.failPending(new Error(`Could not start "${bin}": ${err.message}`));
+      this.callbacks.onError(err.message);
+    });
     proc.on("exit", (code: number | null) => {
       if (!this.disposed) this.callbacks.onExit(code);
     });
@@ -118,12 +123,56 @@ export class AcpClient {
 
   dispose(): void {
     this.disposed = true;
-    for (const { reject } of this.pending.values()) {
-      reject(new Error("ACP client disposed"));
-    }
-    this.pending.clear();
+    this.failPending(new Error("ACP client disposed"));
     this.proc?.kill();
     this.proc = null;
+  }
+
+  // --- environment / binary resolution ---------------------------------
+
+  /**
+   * GUI-launched Obsidian inherits a minimal PATH that usually omits
+   * ~/.local/bin, Homebrew, etc. Resolve a bare command name to an absolute
+   * path via the user's login shell (which sources their real PATH). A path
+   * that already contains a slash is used verbatim.
+   */
+  private resolveBinary(name: string): Promise<string> {
+    if (name.includes("/")) return Promise.resolve(name);
+    return new Promise((resolve) => {
+      try {
+        const { spawn } = window.require("child_process") as { spawn: SpawnFn };
+        const shell = process.env.SHELL || "/bin/zsh";
+        const probe = spawn(shell, ["-lc", `command -v ${name}`], {
+          stdio: ["ignore", "pipe", "ignore"],
+        });
+        let out = "";
+        probe.stdout?.on("data", (d: Buffer) => { out += d.toString(); });
+        probe.on("close", () => {
+          const found = out.trim().split("\n").pop()?.trim();
+          resolve(found && found.startsWith("/") ? found : name);
+        });
+        probe.on("error", () => resolve(name));
+      } catch {
+        resolve(name);
+      }
+    });
+  }
+
+  /** Spawn env with common user bin dirs prepended to PATH as a fallback. */
+  private buildEnv(): NodeJS.ProcessEnv {
+    const home = process.env.HOME ?? "";
+    const extra = [
+      home ? `${home}/.local/bin` : "",
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+    ].filter(Boolean);
+    const path = [...extra, process.env.PATH ?? ""].filter(Boolean).join(":");
+    return { ...process.env, PATH: path };
+  }
+
+  private failPending(err: Error): void {
+    for (const { reject } of this.pending.values()) reject(err);
+    this.pending.clear();
   }
 
   // --- wire protocol ---------------------------------------------------
