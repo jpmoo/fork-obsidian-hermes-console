@@ -298,19 +298,8 @@ export class TerminalView extends ItemView {
   // async: satisfies View.setState() → Promise<void>; restore is synchronous
   async setState(state: unknown, result: ViewStateResult): Promise<void> {
     result.history = false;
-    const parsed = parseSavedViewState(state);
-    if (!parsed) return;
-
-    this.pendingState = parsed;
-    if (!this.tabManager) return;
-
-    // setState is authoritative: if any tabs exist (e.g. a default tab created
-    // by onOpen before the getViewState peek detected incoming state), replace them.
-    // Pass saveToRecents=false — the default tab had no user activity.
-    if (this.tabManager.getSessions().length > 0) {
-      this.tabManager.destroyAll(false);
-    }
-    this.applyPendingState();
+    // Don't restore saved tabs — always start fresh on each Obsidian session
+    // The default tab created in onOpen() will be used instead
   }
 
   private applyPendingState(): void {
