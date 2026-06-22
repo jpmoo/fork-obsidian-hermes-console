@@ -53,6 +53,11 @@ interface PendingCall {
   reject: (reason: Error) => void;
 }
 
+/** Single-quote a path for safe interpolation into a shell command. */
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
 type SpawnFn = typeof import("child_process").spawn;
 type FsModule = typeof import("fs");
 
@@ -73,7 +78,15 @@ export class AcpClient {
   async start(cwd: string): Promise<void> {
     const { spawn } = window.require("child_process") as { spawn: SpawnFn };
     const bin = await this.resolveBinary(this.hermesPath);
-    const proc = spawn(bin, ["acp"], {
+
+    // Run hermes through the user's login shell so it inherits the SAME
+    // environment as their terminal (full PATH for the MCP servers and other
+    // subprocesses hermes spawns). GUI Obsidian's own env is too stripped —
+    // augmenting PATH dir-by-dir is fragile and still yielded exit 127.
+    // `exec` replaces the shell with hermes so stdout stays a clean JSON
+    // stream; any rc-file chatter precedes exec and is skipped by the parser.
+    const shell = process.env.SHELL || "/bin/zsh";
+    const proc = spawn(shell, ["-lc", `exec ${shellQuote(bin)} acp`], {
       cwd,
       stdio: ["pipe", "pipe", "pipe"],
       env: this.buildEnv(),
