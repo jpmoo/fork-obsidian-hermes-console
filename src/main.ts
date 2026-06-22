@@ -274,20 +274,11 @@ export default class TerminalPlugin extends Plugin {
 
   private authorizeTerminalViewCloses(): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
-      (leaf.view as TerminalView).allowNextWorkspaceClose();
+      if (leaf.view instanceof TerminalView) leaf.view.allowNextWorkspaceClose();
     }
   }
 
   closeTerminal(): void {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    if (leaves.length > 0) {
-      const view = leaves[0].view as TerminalView;
-      const state = view.getState();
-      if (Array.isArray(state.tabs) && state.tabs.length > 0 && typeof state.activeIndex === "number") {
-        this.settings.lastViewState = state as unknown as SavedViewState;
-        void this.saveSettings();
-      }
-    }
     this.authorizeTerminalViewCloses();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_TERMINAL);
   }
@@ -431,17 +422,14 @@ export default class TerminalPlugin extends Plugin {
   }
 
   updateTerminalBackgrounds(): void {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    for (const leaf of leaves) {
-      const view = leaf.view as TerminalView;
-      view.updateBackgroundColor();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
+      if (leaf.view instanceof TerminalView) leaf.view.updateBackgroundColor();
     }
   }
 
   updateTabBarPosition(): void {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    for (const leaf of leaves) {
-      (leaf.view as TerminalView).applyTabBarPosition();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
+      if (leaf.view instanceof TerminalView) leaf.view.applyTabBarPosition();
     }
   }
 
@@ -456,24 +444,20 @@ export default class TerminalPlugin extends Plugin {
   }
 
   updateCopyOnSelect(): void {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    for (const leaf of leaves) {
-      const view = leaf.view as TerminalView;
-      view.updateCopyOnSelect();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
+      if (leaf.view instanceof TerminalView) leaf.view.updateCopyOnSelect();
     }
   }
 
   updateTheme(): void {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    for (const leaf of leaves) {
-      (leaf.view as TerminalView).getTabManager()?.updateTheme();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
+      if (leaf.view instanceof TerminalView) leaf.view.getTabManager()?.updateTheme();
     }
   }
 
   updateLineHeight(): void {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    for (const leaf of leaves) {
-      (leaf.view as TerminalView).updateLineHeight();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
+      if (leaf.view instanceof TerminalView) leaf.view.updateLineHeight();
     }
   }
 
@@ -487,9 +471,8 @@ export default class TerminalPlugin extends Plugin {
   }
 
   updateObsidianContextHeaders(): void {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    for (const leaf of leaves) {
-      (leaf.view as TerminalView).updateObsidianContextHeader();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
+      if (leaf.view instanceof TerminalView) leaf.view.updateObsidianContextHeader();
     }
   }
 }
