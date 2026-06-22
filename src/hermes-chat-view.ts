@@ -100,7 +100,7 @@ export class HermesChatView extends ItemView {
         onError: (msg) => this.setStatus(`Error: ${msg}`),
         onExit: (code) => this.setStatus(`Hermes exited (code ${code ?? "?"}).`),
       },
-      this.plugin.settings.shellPath || "hermes",
+      "hermes",
     );
 
     try {

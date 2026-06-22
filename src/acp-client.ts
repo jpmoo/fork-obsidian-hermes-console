@@ -77,16 +77,17 @@ export class AcpClient {
   /** Spawn `hermes acp` in the given working directory and run the handshake. */
   async start(cwd: string): Promise<void> {
     const { spawn } = window.require("child_process") as { spawn: SpawnFn };
-    const bin = await this.resolveBinary(this.hermesPath);
 
     // Run hermes through the user's login shell so it inherits the SAME
     // environment as their terminal (full PATH for the MCP servers and other
     // subprocesses hermes spawns). GUI Obsidian's own env is too stripped —
     // augmenting PATH dir-by-dir is fragile and still yielded exit 127.
-    // `exec` replaces the shell with hermes so stdout stays a clean JSON
-    // stream; any rc-file chatter precedes exec and is skipped by the parser.
+    // We let the login shell resolve a bare command name against the real
+    // PATH; an explicit path (containing a slash) is used verbatim. `exec`
+    // replaces the shell with hermes so stdout stays a clean JSON stream;
+    // any rc-file chatter precedes exec and is skipped by the parser.
     const shell = process.env.SHELL || "/bin/zsh";
-    const command = `exec ${shellQuote(bin)} acp`;
+    const command = `exec ${shellQuote(this.hermesPath)} acp`;
     console.log("[Hermes ACP] spawn", { shell, command, cwd });
     const proc = spawn(shell, ["-lc", command], {
       cwd,
@@ -154,35 +155,7 @@ export class AcpClient {
     this.proc = null;
   }
 
-  // --- environment / binary resolution ---------------------------------
-
-  /**
-   * GUI-launched Obsidian inherits a minimal PATH that usually omits
-   * ~/.local/bin, Homebrew, etc. Resolve a bare command name to an absolute
-   * path via the user's login shell (which sources their real PATH). A path
-   * that already contains a slash is used verbatim.
-   */
-  private resolveBinary(name: string): Promise<string> {
-    if (name.includes("/")) return Promise.resolve(name);
-    return new Promise((resolve) => {
-      try {
-        const { spawn } = window.require("child_process") as { spawn: SpawnFn };
-        const shell = process.env.SHELL || "/bin/zsh";
-        const probe = spawn(shell, ["-lc", `command -v ${name}`], {
-          stdio: ["ignore", "pipe", "ignore"],
-        });
-        let out = "";
-        probe.stdout?.on("data", (d: Buffer) => { out += d.toString(); });
-        probe.on("close", () => {
-          const found = out.trim().split("\n").pop()?.trim();
-          resolve(found && found.startsWith("/") ? found : name);
-        });
-        probe.on("error", () => resolve(name));
-      } catch {
-        resolve(name);
-      }
-    });
-  }
+  // --- environment ----------------------------------------------------
 
   /** Spawn env with common user bin dirs prepended to PATH as a fallback. */
   private buildEnv(): NodeJS.ProcessEnv {
