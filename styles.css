@@ -829,8 +829,13 @@ body.terminal-tab-bar-resizing {
 
 .terminal-session .xterm {
   height: 100%;
-  padding: 14px 0px 14px 16px;
+  padding: 14px 4px 14px 16px;
   box-sizing: border-box;
+}
+
+/* Ensure container doesn't clip xterm content */
+.terminal-host {
+  overflow: visible !important;
 }
 
 /* Session fills host */

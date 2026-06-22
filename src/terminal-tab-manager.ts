@@ -961,6 +961,10 @@ export class TerminalTabManager {
         // Replace reverse video (ESC[7m) with accent-colored background instead
         const accentColor = isObsidianDark() ? "43;34;32" : "216;244;226"; // RGB for accent
         let filteredData = data;
+        const hasReverseVideo = /\x1b\[7m/.test(data);
+        if (hasReverseVideo) {
+          console.log("Replacing reverse video with accent color");
+        }
         // Replace reverse video start with accent background color
         filteredData = filteredData.replace(/\x1b\[7m/g, `\x1b[48;2;${accentColor}m`);
         // Replace reverse video end with reset
