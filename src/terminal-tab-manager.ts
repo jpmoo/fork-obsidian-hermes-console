@@ -226,6 +226,14 @@ function resolveTerminalTheme(settings: TerminalPluginSettings, registry: ThemeR
   if (settings.backgroundColor) {
     theme.background = settings.backgroundColor;
   }
+  // Replace black color with accent-aware color for backgrounds
+  // This makes ANSI black backgrounds (code 40) theme-aware instead of pure black
+  const isDark = isObsidianDark();
+  if (isDark) {
+    theme.black = "#0b4620"; // Dark green tint for dark mode
+  } else {
+    theme.black = "#d8f4e2"; // Light green tint for light mode
+  }
   return theme;
 }
 
