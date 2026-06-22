@@ -959,16 +959,14 @@ export class TerminalTabManager {
       // hook status bridge, not by terminal escape sequences.
       pty.onData((data: string) => {
         // Replace reverse video (ESC[7m) with accent-colored background instead
-        // Use bright colors to test visibility
         let filteredData = data;
-        const hasReverseVideo = /\x1b\[7m/.test(data);
-        if (hasReverseVideo) {
-          console.log("Found reverse video, replacing...");
-          console.log("Before:", JSON.stringify(data.substring(0, 50)));
-          // Replace with BRIGHT GREEN background (255,255,0) and dark text (0,0,0) as test
-          filteredData = filteredData.replace(/\x1b\[7m/g, "\x1b[48;2;255;255;0m\x1b[38;2;0;0;0m"); // Bright yellow bg, black text
-          filteredData = filteredData.replace(/\x1b\[27m/g, "\x1b[0m"); // Reset
-          console.log("After:", JSON.stringify(filteredData.substring(0, 50)));
+        const reverseVideoMatches = data.match(/\x1b\[7m/g);
+        if (reverseVideoMatches) {
+          console.log(`Found ${reverseVideoMatches.length} reverse video code(s)`);
+          console.log("Full data chunk:", JSON.stringify(data));
+          // Replace with BRIGHT YELLOW background (255,255,0) and dark text
+          filteredData = filteredData.replace(/\x1b\[7m/g, "\x1b[48;2;255;255;0m\x1b[38;2;0;0;0m");
+          filteredData = filteredData.replace(/\x1b\[27m/g, "\x1b[0m"); // Reset after reverse video
         }
         terminal.write(filteredData);
       });
