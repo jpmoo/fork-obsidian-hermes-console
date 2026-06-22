@@ -958,18 +958,13 @@ export class TerminalTabManager {
       // Wire data: PTY -> xterm. Hermes busy/idle state is handled by the
       // hook status bridge, not by terminal escape sequences.
       pty.onData((data: string) => {
-        // Debug: log any escape codes to see what format Hermes uses
-        const escapeCodeMatches = data.match(/\x1b\[[0-9;]*m/g);
-        if (escapeCodeMatches) {
-          console.log("Escape codes found:", escapeCodeMatches.slice(0, 5));
-        }
-
-        // Replace pure black RGB backgrounds with accent color
+        // Replace reverse video (ESC[7m) with accent-colored background instead
         const accentColor = isObsidianDark() ? "43;34;32" : "216;244;226"; // RGB for accent
         let filteredData = data;
-        // Match ANSI escape codes with or without 'm' terminator
-        filteredData = filteredData.replace(/\x1b\[48;2;0;0;0m?/g, `\x1b[48;2;${accentColor}m`); // RGB bg black
-        filteredData = filteredData.replace(/\x1b\[38;2;0;0;0m?/g, `\x1b[38;2;${accentColor}m`); // RGB fg black
+        // Replace reverse video start with accent background color
+        filteredData = filteredData.replace(/\x1b\[7m/g, `\x1b[48;2;${accentColor}m`);
+        // Replace reverse video end with reset
+        filteredData = filteredData.replace(/\x1b\[27m/g, "\x1b[0m");
         terminal.write(filteredData);
       });
 
