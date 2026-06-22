@@ -239,15 +239,7 @@ body.theme-light .terminal-view-container {
 
 /* Tab bar */
 .terminal-tab-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  padding: 0;
-  min-height: 22px;
-  background: transparent;
-  border-bottom: 1px solid var(--hermes-border-soft);
-  flex-shrink: 0;
-  overflow-x: auto;
+  display: none;
 }
 
 /* Vertical tab bar variants */
@@ -283,7 +275,7 @@ body.theme-light .terminal-view-container {
 }
 
 .terminal-tab-bar-resize-handle {
-  display: none;
+  display: none !important;
 }
 
 .terminal-view-container.terminal-tabs-left .terminal-tab-bar-resize-handle,
