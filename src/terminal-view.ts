@@ -323,10 +323,10 @@ export class TerminalView extends ItemView {
         name: tab.name,
         color: tab.color,
         cwd: tab.cwd,
-        bufferSerial: tab.bufferSerial,
+        bufferSerial: undefined, // Fresh terminal each session
         resumeCommand: tab.resumeCommand,
         pinned: tab.pinned,
-        restored: !state.runStartupCommand && !!tab.bufferSerial,
+        restored: false, // Always allow startup command to run
       });
     }
 
