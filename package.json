@@ -2,33 +2,25 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-    "test": "vitest run",
-    "test:hermes-bridge": "vitest run hermes/obsidian_context_bridge.test.js"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "esbuild": "^0.25.0",
-    "node-pty": "^1.0.0",
     "obsidian": "^1.7.0",
     "typescript": "^5.8.0",
     "vitest": "^3.0.0"
   },
-  "dependencies": {
-    "@xterm/addon-fit": "^0.10.0",
-    "@xterm/addon-search": "^0.16.0",
-    "@xterm/addon-serialize": "^0.13.0",
-    "@xterm/addon-web-links": "^0.11.0",
-    "@xterm/xterm": "^5.5.0"
-  },
+  "dependencies": {},
   "name": "hermes-console-jpmoo",
   "version": "1.1.16",
-  "description": "Use Hermes Agent with selected-note context",
+  "description": "Chat with Hermes Agent in a native Obsidian panel via the Agent Client Protocol",
   "main": "main.js",
   "keywords": [
     "obsidian",
-    "terminal",
-    "xterm",
-    "pty"
+    "hermes",
+    "acp",
+    "agent"
   ],
   "license": "MIT"
 }

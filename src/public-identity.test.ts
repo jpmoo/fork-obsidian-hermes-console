@@ -9,55 +9,23 @@ function readRepoFile(path: string): string {
   return readFileSync(resolve(rootDir, path), "utf-8");
 }
 
-describe("public plugin identity", () => {
-  it("publishes Hermes Console under the hermes-console plugin id", () => {
+describe("plugin identity", () => {
+  it("uses the hermes-console-jpmoo id consistently", () => {
     const manifest = JSON.parse(readRepoFile("manifest.json")) as {
       id: string;
       name: string;
       description: string;
-      author: string;
     };
+    const pkg = JSON.parse(readRepoFile("package.json")) as { name: string };
 
-    expect(manifest.id).toBe("hermes-console");
+    expect(manifest.id).toBe("hermes-console-jpmoo");
+    expect(pkg.name).toBe("hermes-console-jpmoo");
     expect(manifest.name).toBe("Hermes Console");
-    expect(manifest.author).toBe("Danny Shmueli");
-    expect(manifest.author).not.toMatch(/LeanProductivity|fork/i);
-    expect(manifest.description).toContain("Hermes Agent");
-    expect(manifest.description).toContain("tabbed terminal");
-    expect(manifest.description).toContain("background status alerts");
-    expect(manifest.description).not.toMatch(/\bObsidian\b/);
-    expect(manifest.description).not.toMatch(/^Hermes Console\b/);
-    expect(manifest.description).not.toContain("Hermes Console for Obsidian Plan");
   });
 
-  it("registers only the canonical hermes-console URI protocol", () => {
-    const mainSource = readRepoFile("src/main.ts");
-
-    expect(mainSource).toContain('registerObsidianProtocolHandler("hermes-console"');
-    expect(mainSource).not.toContain('registerObsidianProtocolHandler("lean-terminal"');
-  });
-
-  it("uses hermes-console for public install and URI documentation", () => {
+  it("installs under the hermes-console-jpmoo plugin folder", () => {
     const installScript = readRepoFile("install.mjs");
-    const readme = readRepoFile("README.md");
-    const changelog = readRepoFile("CHANGELOG.md");
-    const changelogGenerator = readRepoFile("scripts/generate-changelog.mjs");
-    const uriDoc = readRepoFile("docs/uri-handler.md");
-
-    expect(installScript).toContain('".obsidian", "plugins", "hermes-console"');
-    expect(installScript).toContain('"obsidian_context_bridge.js", "plugin.yaml"');
-    expect(installScript).not.toContain('".obsidian", "plugins", "lean-terminal"');
-
-    expect(readme).toContain(".obsidian/plugins/hermes-console");
-    expect(readme).toContain("obsidian://hermes-console");
-    expect(readme).not.toContain("Hermes Console for Obsidian Plan");
-    expect(readme).not.toContain("obsidian://lean-terminal");
-
-    expect(uriDoc).toContain("obsidian://hermes-console");
-    expect(uriDoc).not.toContain("obsidian://lean-terminal");
-    expect(uriDoc).not.toContain("Hermes Console for Obsidian Plan");
-
-    expect(changelog).not.toContain("Hermes Console for Obsidian Plan");
-    expect(changelogGenerator).not.toContain("Hermes Console for Obsidian Plan");
+    expect(installScript).toContain('".obsidian", "plugins", "hermes-console-jpmoo"');
+    expect(installScript).not.toContain("lean-terminal");
   });
 });

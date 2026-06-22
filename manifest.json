@@ -3,7 +3,7 @@
   "name": "Hermes Console",
   "version": "1.1.16",
   "minAppVersion": "1.7.2",
-  "description": "Use Hermes Agent in a tabbed terminal with selected-note context and background status alerts.",
+  "description": "Chat with Hermes Agent in a native panel powered by the Agent Client Protocol.",
   "author": "Danny Shmueli",
   "isDesktopOnly": true
 }

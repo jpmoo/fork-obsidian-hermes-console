@@ -1,22 +1,13 @@
-import { FileSystemAdapter, Plugin, TFolder, WorkspaceLeaf, addIcon, setIcon } from "obsidian";
+import { Plugin, WorkspaceLeaf, addIcon, setIcon } from "obsidian";
 import { VIEW_TYPE_TERMINAL } from "./constants";
-import { TerminalView } from "./terminal-view";
 import { HermesChatView } from "./hermes-chat-view";
 import {
-  TerminalSettingTab,
+  HermesSettingTab,
   DEFAULT_SETTINGS,
-  normalizeTerminalPluginSettings,
-  type TerminalPluginSettings,
+  normalizeSettings,
+  type ConsoleLocation,
+  type HermesPluginSettings,
 } from "./settings";
-import { BinaryManager } from "./binary-manager";
-import { ThemeRegistry } from "./theme-registry";
-import { openRestoreSessionPicker } from "./recent-sessions";
-import { resumeHermesSession } from "./hermes-sessions";
-import { notifyProtocolHandlerError, validateProtocolCwd } from "./uri-cwd";
-import type { SavedViewState } from "./session-state";
-import type { TerminalTabManager } from "./terminal-tab-manager";
-import { ObsidianContextTracker } from "./obsidian-context-bridge";
-import { getLeafForTerminalLocation } from "./terminal-opener";
 import {
   HERMES_ICON_ID,
   HERMES_ICON_SVG,
@@ -24,455 +15,102 @@ import {
   HERMES_SETTINGS_ICON_SVG,
 } from "./hermes-icon";
 
-export default class TerminalPlugin extends Plugin {
-  settings: TerminalPluginSettings = DEFAULT_SETTINGS;
-  binaryManager!: BinaryManager;
-  themeRegistry!: ThemeRegistry;
-  obsidianContextTracker!: ObsidianContextTracker;
+export default class HermesPlugin extends Plugin {
+  settings: HermesPluginSettings = DEFAULT_SETTINGS;
   private ribbonEl: HTMLElement | null = null;
-  private themeObserver: MutationObserver | null = null;
-  private contextRefreshRaf: number | null = null;
 
   async onload(): Promise<void> {
     addIcon(HERMES_ICON_ID, HERMES_ICON_SVG);
     addIcon(HERMES_SETTINGS_ICON_ID, HERMES_SETTINGS_ICON_SVG);
     await this.loadSettings();
-    this.obsidianContextTracker = new ObsidianContextTracker();
-    this.obsidianContextTracker.rememberFromApp(this.app);
 
-    // Initialize binary manager
-    const path = window.require("path") as typeof import("path");
-    const adapter = this.app.vault.adapter as FileSystemAdapter;
-    const pluginDir = path.join(
-      adapter.getBasePath(),
-      this.app.vault.configDir, "plugins", this.manifest.id
-    );
-    this.binaryManager = new BinaryManager(pluginDir);
-    this.binaryManager.checkInstalled();
+    this.registerView(VIEW_TYPE_TERMINAL, (leaf: WorkspaceLeaf) => new HermesChatView(leaf, this));
 
-    // Theme registry — loads optional themes.json from the plugin folder
-    this.themeRegistry = new ThemeRegistry(pluginDir);
-    await this.themeRegistry.load();
-
-    // Register the Hermes chat view (ACP-driven native UI)
-    this.registerView(VIEW_TYPE_TERMINAL, (leaf: WorkspaceLeaf) => {
-      return new HermesChatView(leaf, this);
-    });
-
-    // Ribbon icon
     this.ribbonEl = this.addRibbonIcon(this.settings.ribbonIcon, "Open Hermes Console", () => {
-      void this.activateTerminal();
+      void this.activateView();
     });
 
-    // Commands
     this.addCommand({
       id: "open-terminal",
       name: "Open Hermes Console",
-      callback: () => void this.activateTerminal(),
+      callback: () => void this.activateView(),
     });
-
     this.addCommand({
       id: "close-terminal",
       name: "Close Hermes Console",
-      callback: () => this.closeTerminal(),
+      callback: () => this.closeView(),
     });
-
-    this.addCommand({
-      id: "new-terminal-tab",
-      name: "New Hermes Console tab",
-      callback: () => this.newTab(),
-    });
-
     this.addCommand({
       id: "toggle-terminal",
       name: "Toggle Hermes Console",
-      callback: () => this.toggleTerminal(),
+      callback: () => void this.toggleView(),
     });
-
     this.addCommand({
       id: "open-terminal-split",
       name: "Open Hermes Console in new pane",
-      callback: () => void this.openTerminalInNewPane(),
+      callback: () => void this.openInNewPane(),
     });
 
-    this.addCommand({
-      id: "open-terminal-here",
-      name: "Open Hermes Console in current file's directory",
-      checkCallback: (checking) => {
-        if (!this.app.workspace.getActiveFile()) return false;
-        if (!checking) void this.openTerminalHere();
-        return true;
-      },
-    });
-
-    this.addCommand({
-      id: "toggle-active-terminal-note-context",
-      name: "Toggle note context for active Hermes Console tab",
-      callback: () => this.toggleActiveTerminalNoteContext(),
-    });
-
-    this.addCommand({
-      id: "restore-terminal-or-hermes-session",
-      name: "Restore console or Hermes session",
-      callback: () => void openRestoreSessionPicker(this),
-    });
-
-    // Tab navigation commands
-    this.addCommand({
-      id: "next-terminal-tab",
-      name: "Next terminal tab",
-      callback: () => this.navigateTerminalTab(1),
-    });
-
-    this.addCommand({
-      id: "prev-terminal-tab",
-      name: "Previous terminal tab",
-      callback: () => this.navigateTerminalTab(-1),
-    });
-
-    this.addCommand({
-      id: "first-terminal-tab",
-      name: "Go to first terminal tab",
-      callback: () => {
-        const mgr = this.getActiveTabManager();
-        if (!mgr) return;
-        mgr.switchToIndex(0);
-      },
-    });
-
-    this.addCommand({
-      id: "last-terminal-tab",
-      name: "Go to last terminal tab",
-      callback: () => {
-        const mgr = this.getActiveTabManager();
-        if (!mgr) return;
-        mgr.switchToIndex(mgr.getSessions().length - 1);
-      },
-    });
-
-    for (let i = 1; i <= 8; i++) {
-      this.addCommand({
-        id: `terminal-tab-${i}`,
-        name: `Go to terminal tab ${i}`,
-        callback: () => {
-          const mgr = this.getActiveTabManager();
-          if (!mgr) return;
-          mgr.switchToIndex(i - 1);
-        },
-      });
-    }
-
-    // URI handler for external resume links. The plugin does not generate
-    // any session-list note or write Hermes session metadata into the vault.
-    this.registerObsidianProtocolHandler("hermes-console", (params) => {
-      void this.handleHermesConsoleUri(params).catch(notifyProtocolHandlerError);
-    });
-
-    // Settings tab
-    this.addSettingTab(new TerminalSettingTab(this.app, this));
-
-    // Flush any pending layout save before Obsidian quits. Without this, a
-    // typed-then-quickly-quit scenario loses the last few seconds of activity
-    // because Obsidian's requestSaveLayout is debounced.
-    this.registerEvent(
-      this.app.workspace.on("active-leaf-change", () => {
-        this.refreshObsidianContextHeadersSoon();
-      })
-    );
-
-    this.registerEvent(
-      this.app.workspace.on("file-open", () => {
-        this.refreshObsidianContextHeadersSoon();
-      })
-    );
-
-    // Obsidian's public `editor-change` event tracks document edits, not every
-    // cursor/selection move. Use DOM selection/keyboard/pointer notifications to
-    // refresh the live header as the user selects text or moves the caret in a
-    // Markdown editor. The actual payload is still captured live on Enter.
-    this.registerDomEvent(activeDocument, "selectionchange", () => this.refreshObsidianContextHeadersSoon());
-    this.registerDomEvent(activeDocument, "keyup", () => this.refreshObsidianContextHeadersSoon());
-    this.registerDomEvent(activeDocument, "pointerup", () => this.refreshObsidianContextHeadersSoon());
-
-    this.registerEvent(
-      this.app.workspace.on("file-menu", (menu, abstractFile) => {
-        const vaultRelDir = abstractFile instanceof TFolder
-          ? abstractFile.path
-          : abstractFile.parent?.path ?? "";
-        const pathMod = window.require("path") as typeof import("path");
-        const adapter = this.app.vault.adapter as FileSystemAdapter;
-        const cwd = vaultRelDir
-          ? pathMod.join(adapter.getBasePath(), vaultRelDir)
-          : adapter.getBasePath();
-        menu.addItem((item) =>
-          item
-            .setTitle("Open Hermes Console here")
-            .setIcon("terminal")
-            .onClick(() => void this.openTerminalAt(cwd))
-        );
-      })
-    );
-
-    this.registerEvent(
-      this.app.workspace.on("quit", () => {
-        this.authorizeTerminalViewCloses();
-        void this.app.workspace.requestSaveLayout.run();
-      })
-    );
-
-    // Keep terminal themes in sync with Obsidian's dark/light mode toggle.
-    // Only fires when the dark/light class actually flips, not on every class change.
-    let lastDark = activeDocument.body.classList.contains("theme-dark");
-    this.themeObserver = new MutationObserver(() => {
-      const isDark = activeDocument.body.classList.contains("theme-dark");
-      if (isDark === lastDark) return;
-      lastDark = isDark;
-      this.updateTheme();
-    });
-    this.themeObserver.observe(activeDocument.body, { attributes: true, attributeFilter: ["class"] });
+    this.addSettingTab(new HermesSettingTab(this.app, this));
   }
 
   onunload(): void {
-    if (this.contextRefreshRaf !== null) {
-      window.cancelAnimationFrame(this.contextRefreshRaf);
-      this.contextRefreshRaf = null;
-    }
-    this.themeObserver?.disconnect();
-    this.themeObserver = null;
-
-    // Detach after a tick to avoid disrupting the settings modal
-    window.setTimeout(() => {
-      this.authorizeTerminalViewCloses();
-      this.app.workspace.detachLeavesOfType(VIEW_TYPE_TERMINAL);
-    }, 0);
-  }
-
-  async activateTerminal(): Promise<void> {
-    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    if (existing.length > 0) {
-      void this.app.workspace.revealLeaf(existing[0]);
-      return;
-    }
-
-    const leaf = getLeafForTerminalLocation(this.app.workspace, this.settings.defaultLocation);
-
-    if (leaf) {
-      const savedState = this.settings.lastViewState;
-      await leaf.setViewState({
-        type: VIEW_TYPE_TERMINAL,
-        active: true,
-        state: (savedState ?? {}) as Record<string, unknown>,
-      });
-      void this.app.workspace.revealLeaf(leaf);
-
-      if (savedState) {
-        this.settings.lastViewState = undefined;
-        void this.saveSettings();
-      }
-    }
-  }
-
-  private authorizeTerminalViewCloses(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
-      if (leaf.view instanceof TerminalView) leaf.view.allowNextWorkspaceClose();
-    }
-  }
-
-  closeTerminal(): void {
-    this.authorizeTerminalViewCloses();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_TERMINAL);
   }
 
-  toggleTerminal(): void {
+  async activateView(): Promise<void> {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
     if (existing.length > 0) {
-      this.closeTerminal();
-    } else {
-      void this.activateTerminal();
-    }
-  }
-
-  private newTab(): void {
-    // Single chat session — just open/reveal the console.
-    void this.activateTerminal();
-  }
-
-  async openTerminalInNewPane(): Promise<void> {
-    const leaf = this.app.workspace.getLeaf("split", "horizontal");
-    if (leaf) {
-      await leaf.setViewState({ type: VIEW_TYPE_TERMINAL, active: true });
-      void this.app.workspace.revealLeaf(leaf);
-    }
-  }
-
-  private getActiveTerminalView(): TerminalView | null {
-    return this.app.workspace.getActiveViewOfType(TerminalView);
-  }
-
-  private toggleActiveTerminalNoteContext(): void {
-    const view = this.getActiveTerminalView();
-    if (!view) return;
-    view.toggleActiveNoteContextEnabled();
-  }
-
-  private getActiveTabManager(): TerminalTabManager | null {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    if (!leaves.length) return null;
-    const view = leaves[0].view;
-    // Chat view has no tab manager — tab commands are vestigial and no-op.
-    if (!(view instanceof TerminalView)) return null;
-    return view.getTabManager() ?? null;
-  }
-
-  private navigateTerminalTab(delta: -1 | 1): void {
-    const mgr = this.getActiveTabManager();
-    if (!mgr) return;
-    const count = mgr.getSessions().length;
-    if (count < 2) return;
-    const next = ((mgr.getActiveIndex() + delta) + count) % count;
-    mgr.switchToIndex(next);
-  }
-
-  private getActiveFileDirCwd(): string | null {
-    const file = this.app.workspace.getActiveFile();
-    if (!file) return null;
-    const path = window.require("path") as typeof import("path");
-    const adapter = this.app.vault.adapter as FileSystemAdapter;
-    const vaultRelDir = file.parent?.path ?? "";
-    return vaultRelDir
-      ? path.join(adapter.getBasePath(), vaultRelDir)
-      : adapter.getBasePath();
-  }
-
-  private async handleHermesConsoleUri(params: Record<string, string>): Promise<void> {
-    if (params.resume) {
-      await resumeHermesSession(this, params.resume);
-      return;
-    }
-
-    if (!params.cwd) return;
-
-    // Obsidian protocol parameters are already decoded before they reach this
-    // handler. Do not call decodeURIComponent here: paths like "100% Notes"
-    // can throw "URI malformed" and literal percent-encoded folder names can
-    // be silently transformed.
-    // Direct Node fs access is intentional here: URI links may request a terminal
-    // cwd outside the vault, so the Vault API cannot validate it. We only stat
-    // this explicit user-provided path before opening a PTY there.
-    const fs = window.require("fs") as typeof import("fs");
-    const cwd = validateProtocolCwd(params.cwd, {
-      existsSync: fs.existsSync,
-      statSync: fs.statSync,
-    });
-    if (!cwd) {
-      console.warn("[Hermes Console] Ignoring URI cwd because it is not an existing directory", params.cwd);
-      return;
-    }
-
-    await this.openTerminalAt(cwd);
-  }
-
-  private async openTerminalAt(cwd: string): Promise<void> {
-    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL);
-    if (existing.length > 0) {
-      const view = existing[0].view;
       void this.app.workspace.revealLeaf(existing[0]);
-      if (view instanceof TerminalView) view.createNewTab({ cwd });
       return;
     }
-
-    const leaf = getLeafForTerminalLocation(this.app.workspace, this.settings.defaultLocation);
+    const leaf = this.getLeafForLocation(this.settings.defaultLocation);
     if (!leaf) return;
-
-    await leaf.setViewState({
-      type: VIEW_TYPE_TERMINAL,
-      active: true,
-      state: { tabs: [{ name: "Hermes 1", color: "", cwd }], activeIndex: 0, runStartupCommand: true },
-    });
+    await leaf.setViewState({ type: VIEW_TYPE_TERMINAL, active: true });
     void this.app.workspace.revealLeaf(leaf);
   }
 
-  private async openTerminalHere(): Promise<void> {
-    const cwd = this.getActiveFileDirCwd();
-    if (!cwd) return;
-    await this.openTerminalAt(cwd);
+  closeView(): void {
+    this.app.workspace.detachLeavesOfType(VIEW_TYPE_TERMINAL);
   }
 
-  async loadSettings(): Promise<void> {
-    const { settings, migratedLegacySettings } = normalizeTerminalPluginSettings(await this.loadData());
-    this.settings = settings;
-    // Migrate older built-in icons to the current Hermes half-wing mark,
-    // while preserving any custom icon name the user entered manually.
-    if (this.settings.ribbonIcon === "bot-message-square" || this.settings.ribbonIcon === "hermes-caduceus-wing") {
-      this.settings.ribbonIcon = DEFAULT_SETTINGS.ribbonIcon;
-    }
-    // tabColors is the only array in settings. Object.assign is shallow,
-    // so on a fresh install (data.json has no tabColors) the merged
-    // settings would share the reference with DEFAULT_SETTINGS, and any
-    // push/filter mutation would leak into the module-level default.
-    // Deep-clone here so the default array stays immutable.
-    this.settings.tabColors = this.settings.tabColors.map((c) => ({ ...c }));
-    if (migratedLegacySettings) {
-      await this.saveSettings();
+  async toggleView(): Promise<void> {
+    if (this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL).length > 0) {
+      this.closeView();
+    } else {
+      await this.activateView();
     }
   }
 
-  async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+  async openInNewPane(): Promise<void> {
+    const leaf = this.app.workspace.getLeaf("split", "horizontal");
+    await leaf.setViewState({ type: VIEW_TYPE_TERMINAL, active: true });
+    void this.app.workspace.revealLeaf(leaf);
   }
 
-  updateTerminalBackgrounds(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
-      if (leaf.view instanceof TerminalView) leaf.view.updateBackgroundColor();
-    }
-  }
-
-  updateTabBarPosition(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
-      if (leaf.view instanceof TerminalView) leaf.view.applyTabBarPosition();
+  private getLeafForLocation(location: ConsoleLocation): WorkspaceLeaf | null {
+    switch (location) {
+      case "right":
+        return this.app.workspace.getRightLeaf(false);
+      case "tab":
+        return this.app.workspace.getLeaf("tab");
+      case "split-right":
+        return this.app.workspace.getLeaf("split", "vertical");
+      default:
+        return this.app.workspace.getLeaf("split", "horizontal");
     }
   }
 
   updateIcon(name: string): void {
-    const safeName = name || "terminal";
+    const safeName = name || HERMES_ICON_ID;
     if (this.ribbonEl) setIcon(this.ribbonEl, safeName);
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
-      // tabHeaderInnerIconEl is undocumented but stable across Obsidian versions
-      const iconEl = (leaf as WorkspaceLeaf & { tabHeaderInnerIconEl?: HTMLElement }).tabHeaderInnerIconEl;
-      if (iconEl) setIcon(iconEl, safeName);
-    }
   }
 
-  updateCopyOnSelect(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
-      if (leaf.view instanceof TerminalView) leaf.view.updateCopyOnSelect();
-    }
+  async loadSettings(): Promise<void> {
+    this.settings = normalizeSettings(await this.loadData());
   }
 
-  updateTheme(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
-      if (leaf.view instanceof TerminalView) leaf.view.getTabManager()?.updateTheme();
-    }
-  }
-
-  updateLineHeight(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
-      if (leaf.view instanceof TerminalView) leaf.view.updateLineHeight();
-    }
-  }
-
-  private refreshObsidianContextHeadersSoon(): void {
-    if (this.contextRefreshRaf !== null) return;
-    this.contextRefreshRaf = window.requestAnimationFrame(() => {
-      this.contextRefreshRaf = null;
-      this.obsidianContextTracker.rememberFromApp(this.app);
-      this.updateObsidianContextHeaders();
-    });
-  }
-
-  updateObsidianContextHeaders(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_TERMINAL)) {
-      if (leaf.view instanceof TerminalView) leaf.view.updateObsidianContextHeader();
-    }
+  async saveSettings(): Promise<void> {
+    await this.saveData(this.settings);
   }
 }
