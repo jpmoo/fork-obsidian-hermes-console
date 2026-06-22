@@ -13,13 +13,26 @@ export interface HermesPluginSettings {
   hermesPath: string;
   /** Hermes session id to resume on next open (chat persistence). */
   lastSessionId?: string;
+  /** How many past conversations to show in the "continue" dropdown. */
+  historyCount: number;
+  /** What to open when the console first loads. */
+  startupBehavior: StartupBehavior;
 }
+
+export type StartupBehavior =
+  | "resume-last-obsidian" // the conversation you last had in this plugin
+  | "resume-last-hermes"   // the most recent Hermes session (any client)
+  | "new";                 // a fresh conversation
 
 export const DEFAULT_SETTINGS: HermesPluginSettings = {
   ribbonIcon: HERMES_ICON_ID,
   defaultLocation: "right",
   hermesPath: "",
+  historyCount: 10,
+  startupBehavior: "resume-last-obsidian",
 };
+
+const STARTUP_BEHAVIORS: StartupBehavior[] = ["resume-last-obsidian", "resume-last-hermes", "new"];
 
 const LOCATIONS: ConsoleLocation[] = ["bottom", "right", "tab", "split-right"];
 
@@ -33,6 +46,12 @@ export function normalizeSettings(stored: unknown): HermesPluginSettings {
   }
   if (typeof source.hermesPath === "string") settings.hermesPath = source.hermesPath;
   if (typeof source.lastSessionId === "string") settings.lastSessionId = source.lastSessionId;
+  if (typeof source.historyCount === "number" && Number.isFinite(source.historyCount)) {
+    settings.historyCount = Math.min(50, Math.max(1, Math.round(source.historyCount)));
+  }
+  if (typeof source.startupBehavior === "string" && (STARTUP_BEHAVIORS as string[]).includes(source.startupBehavior)) {
+    settings.startupBehavior = source.startupBehavior as StartupBehavior;
+  }
   return settings;
 }
 
@@ -58,6 +77,37 @@ export class HermesSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.defaultLocation = value as ConsoleLocation;
             await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("On open")
+      .setDesc("What the console shows when it first opens.")
+      .addDropdown((dropdown) => {
+        dropdown
+          .addOption("resume-last-obsidian", "Resume my last conversation here")
+          .addOption("resume-last-hermes", "Resume most recent Hermes session")
+          .addOption("new", "Start a new conversation")
+          .setValue(this.plugin.settings.startupBehavior)
+          .onChange(async (value) => {
+            this.plugin.settings.startupBehavior = value as StartupBehavior;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Conversations in history dropdown")
+      .setDesc("How many recent Hermes conversations to list in the \"continue\" dropdown (1–50).")
+      .addText((text) => {
+        text
+          .setPlaceholder("10")
+          .setValue(String(this.plugin.settings.historyCount))
+          .onChange(async (value) => {
+            const n = Number(value);
+            if (Number.isFinite(n) && n >= 1 && n <= 50) {
+              this.plugin.settings.historyCount = Math.round(n);
+              await this.plugin.saveSettings();
+            }
           });
       });
 

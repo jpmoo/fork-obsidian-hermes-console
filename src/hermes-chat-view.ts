@@ -21,8 +21,11 @@ export class HermesChatView extends ItemView {
   private client: AcpClient | null = null;
 
   private messagesEl!: HTMLElement;
+  private emptyEl!: HTMLElement;
+  private newBtn!: HTMLButtonElement;
   private inputEl!: HTMLTextAreaElement;
   private sendButton!: HTMLButtonElement;
+  private messageObserver: MutationObserver | null = null;
 
   // Status bar fields (model · context · tokens · time · state).
   private stateEl!: HTMLElement;
@@ -92,15 +95,28 @@ export class HermesChatView extends ItemView {
     this.contextToggleEl.createSpan({ cls: "hermes-context-label", text: "Note context" });
     this.contextToggleEl.addEventListener("click", () => this.toggleContext());
 
-    const clearBtn = header.createEl("button", { cls: "hermes-chat-clear", attr: { "aria-label": "Clear conversation" } });
-    setIcon(clearBtn, "trash-2");
-    clearBtn.title = "Clear conversation";
-    clearBtn.addEventListener("click", () => void this.clearConversation());
+    this.newBtn = header.createEl("button", { cls: "hermes-chat-iconbtn", attr: { "aria-label": "New conversation" } });
+    setIcon(this.newBtn, "square-pen");
+    this.newBtn.title = "New conversation";
+    this.newBtn.addEventListener("click", () => void this.newConversation());
+
+    const historyBtn = header.createEl("button", { cls: "hermes-chat-iconbtn", attr: { "aria-label": "Continue a conversation" } });
+    setIcon(historyBtn, "history");
+    historyBtn.title = "Continue a conversation";
+    historyBtn.addEventListener("click", (e) => void this.openHistoryMenu(e));
 
     // Context detail on its own row beneath the header (single truncated line).
     this.contextInfoEl = container.createDiv({ cls: "hermes-context-info" });
 
     this.messagesEl = container.createDiv({ cls: "hermes-chat-messages" });
+    this.emptyEl = this.messagesEl.createDiv({ cls: "hermes-empty" });
+    this.emptyEl.setText("Start typing to Hermes, or use the dropdown above to continue an existing conversation.");
+
+    // Keep the empty-state placeholder and the dimmed "new" button in sync
+    // with whether the transcript has any content.
+    this.messageObserver = new MutationObserver(() => this.updateEmptyState());
+    this.messageObserver.observe(this.messagesEl, { childList: true });
+    this.updateEmptyState();
 
     const inputRow = container.createDiv({ cls: "hermes-chat-input-row" });
     this.inputEl = inputRow.createEl("textarea", {
@@ -141,20 +157,25 @@ export class HermesChatView extends ItemView {
 
   async onClose(): Promise<void> {
     this.stopTurnTimer();
+    this.messageObserver?.disconnect();
+    this.messageObserver = null;
     this.client?.dispose();
     this.client = null;
   }
 
   // --- connection ------------------------------------------------------
 
+  private cwd(): string {
+    try {
+      return (this.app.vault.adapter as FileSystemAdapter).getBasePath();
+    } catch {
+      return process.cwd();
+    }
+  }
+
   private async connect(): Promise<void> {
     this.setStatus("Starting Hermes…");
-    let cwd: string;
-    try {
-      cwd = (this.app.vault.adapter as FileSystemAdapter).getBasePath();
-    } catch {
-      cwd = process.cwd();
-    }
+    const cwd = this.cwd();
 
     this.client = new AcpClient(
       {
@@ -167,24 +188,74 @@ export class HermesChatView extends ItemView {
     );
 
     try {
-      const resumeId = this.plugin.settings.lastSessionId;
-      if (resumeId) this.setStatus("Resuming previous conversation…");
-      const resumed = await this.client.start(cwd, resumeId);
+      await this.client.start(cwd);
       this.connected = true;
-      this.updateModel();
-
-      // Persist the (possibly new) session id for next time.
-      const sid = this.client.getSessionId();
-      if (sid && sid !== this.plugin.settings.lastSessionId) {
-        this.plugin.settings.lastSessionId = sid;
-        await this.plugin.saveSettings();
-      }
-      // Replay (on resume) arrives during start(); close the last open segment.
-      if (resumed) this.finalizeSegments();
+      await this.openInitialSession(cwd);
       this.setStatus("Ready.");
       this.inputEl.focus();
     } catch (err) {
       this.setStatus(`Failed to start Hermes: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  /** Decide which session to open on first load, per the user's setting. */
+  private async openInitialSession(cwd: string): Promise<void> {
+    const behavior = this.plugin.settings.startupBehavior;
+
+    if (behavior === "new") {
+      await this.beginNewSession(cwd);
+      return;
+    }
+
+    if (behavior === "resume-last-hermes" && this.client?.supportsLoad) {
+      try {
+        const sessions = await this.client.listSessions();
+        if (sessions[0]) {
+          await this.resumeSession(cwd, sessions[0].sessionId);
+          return;
+        }
+      } catch (err) {
+        console.warn("[Hermes] could not list sessions:", err);
+      }
+      await this.beginNewSession(cwd);
+      return;
+    }
+
+    // resume-last-obsidian (default)
+    const id = this.plugin.settings.lastSessionId;
+    if (id && this.client?.supportsLoad) {
+      try {
+        await this.resumeSession(cwd, id);
+        return;
+      } catch (err) {
+        console.warn("[Hermes] resume failed, starting fresh:", err);
+      }
+    }
+    await this.beginNewSession(cwd);
+  }
+
+  private async beginNewSession(cwd: string): Promise<void> {
+    if (!this.client) return;
+    await this.client.newSession(cwd);
+    this.updateModel();
+    await this.persistSessionId();
+  }
+
+  private async resumeSession(cwd: string, sessionId: string): Promise<void> {
+    if (!this.client) return;
+    this.setStatus("Loading conversation…");
+    // Replay arrives via session/update during loadSession and renders here.
+    await this.client.loadSession(cwd, sessionId);
+    this.finalizeSegments();
+    this.updateModel();
+    await this.persistSessionId();
+  }
+
+  private async persistSessionId(): Promise<void> {
+    const sid = this.client?.getSessionId();
+    if (sid && sid !== this.plugin.settings.lastSessionId) {
+      this.plugin.settings.lastSessionId = sid;
+      await this.plugin.saveSettings();
     }
   }
 
@@ -434,29 +505,104 @@ export class HermesChatView extends ItemView {
 
   // --- helpers ---------------------------------------------------------
 
-  /** Clear the transcript and start a fresh Hermes session (with confirm). */
-  private async clearConversation(): Promise<void> {
+  /** Start a fresh conversation. The previous one is kept in Hermes history
+   *  (resumable from the dropdown), so no destructive confirm is needed. */
+  private async newConversation(): Promise<void> {
     if (this.turnActive) {
-      new Notice("Wait for the current turn to finish before clearing.");
+      new Notice("Wait for the current turn to finish first.");
       return;
     }
-    if (!window.confirm("Clear this conversation and start a new one? This cannot be undone.")) {
+    if (!this.client || !this.connected) {
+      new Notice("Hermes is still starting…");
       return;
     }
-    this.client?.dispose();
-    this.client = null;
-    this.connected = false;
+    this.clearTranscript();
+    this.clearStats();
+    await this.beginNewSession(this.cwd());
+    this.setStatus("Ready.");
+    this.inputEl.focus();
+  }
+
+  /** Open a menu of recent Hermes conversations to continue. */
+  private async openHistoryMenu(evt: MouseEvent): Promise<void> {
+    if (!this.client || !this.connected) {
+      new Notice("Hermes is still starting…");
+      return;
+    }
+    let sessions: Awaited<ReturnType<AcpClient["listSessions"]>>;
+    try {
+      sessions = await this.client.listSessions();
+    } catch (err) {
+      new Notice(`Could not list conversations: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
+    const list = sessions.slice(0, this.plugin.settings.historyCount);
+    if (!list.length) {
+      new Notice("No past conversations yet.");
+      return;
+    }
+    const menu = new Menu();
+    const current = this.client.getSessionId();
+    for (const s of list) {
+      menu.addItem((item) => {
+        item
+          .setTitle(`${s.title || "(untitled)"}  ·  ${this.timeAgo(s.updatedAt)}`)
+          .setChecked(s.sessionId === current)
+          .onClick(() => void this.loadConversation(s.sessionId));
+      });
+    }
+    menu.showAtMouseEvent(evt);
+  }
+
+  /** Clear the buffer and load a past conversation. */
+  private async loadConversation(sessionId: string): Promise<void> {
+    if (this.turnActive) {
+      new Notice("Wait for the current turn to finish first.");
+      return;
+    }
+    if (!this.client || !this.connected) return;
+    if (sessionId === this.client.getSessionId()) return; // already open
+    this.clearTranscript();
+    this.clearStats();
+    try {
+      await this.resumeSession(this.cwd(), sessionId);
+      this.setStatus("Ready.");
+    } catch (err) {
+      new Notice(`Failed to load conversation: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  /** Remove all transcript nodes but keep the empty-state placeholder. */
+  private clearTranscript(): void {
     this.messagesEl.empty();
+    this.messagesEl.appendChild(this.emptyEl);
     this.resetSegments();
+  }
+
+  private clearStats(): void {
     this.tokensEl.setText("");
     this.timeEl.setText("");
     this.ctxEl.setText("");
-    // Drop the persisted session so connect() starts fresh.
-    if (this.plugin.settings.lastSessionId) {
-      this.plugin.settings.lastSessionId = undefined;
-      await this.plugin.saveSettings();
-    }
-    await this.connect();
+  }
+
+  /** Show the placeholder and dim the New button when the transcript is empty. */
+  private updateEmptyState(): void {
+    const hasContent = !!this.messagesEl.querySelector(
+      ".hermes-msg, .hermes-tool-call, .hermes-thought, .hermes-permission",
+    );
+    this.emptyEl.toggle(!hasContent);
+    this.newBtn?.toggleClass("is-dimmed", !hasContent);
+  }
+
+  private timeAgo(iso: string): string {
+    const then = new Date(iso).getTime();
+    if (!Number.isFinite(then)) return "";
+    const mins = Math.round((Date.now() - then) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.round(hrs / 24)}d ago`;
   }
 
   // --- note context ----------------------------------------------------

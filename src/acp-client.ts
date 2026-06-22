@@ -50,6 +50,14 @@ export interface AcpAvailableModel {
   description?: string;
 }
 
+/** A past Hermes session, from session/list. */
+export interface AcpSessionSummary {
+  sessionId: string;
+  title: string;
+  updatedAt: string;
+  cwd?: string;
+}
+
 /** Per-turn token accounting returned by session/prompt. */
 export interface AcpUsage {
   inputTokens?: number;
@@ -85,6 +93,11 @@ function shellQuote(s: string): string {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
+type SessionResult = {
+  sessionId?: string;
+  models?: { currentModelId?: string; availableModels?: AcpAvailableModel[] };
+};
+
 type SpawnFn = typeof import("child_process").spawn;
 type FsModule = typeof import("fs");
 
@@ -95,6 +108,7 @@ export class AcpClient {
   private pending = new Map<number, PendingCall>();
   private sessionId: string | null = null;
   private disposed = false;
+  private canLoad = false;
   /** Selected model, populated after the session is created. */
   model: AcpModelInfo | null = null;
   /** All selectable models reported by the session. */
@@ -105,13 +119,8 @@ export class AcpClient {
     private readonly hermesPath = "hermes",
   ) {}
 
-  /**
-   * Spawn `hermes acp` and run the handshake. If `resumeSessionId` is given and
-   * the agent supports it, resume that Hermes session (which replays the prior
-   * conversation as session/update notifications and restores context);
-   * otherwise create a fresh session. Returns true if a session was resumed.
-   */
-  async start(cwd: string, resumeSessionId?: string): Promise<boolean> {
+  /** Spawn `hermes acp` and run the initialize handshake (no session yet). */
+  async start(cwd: string): Promise<void> {
     const { spawn } = window.require("child_process") as { spawn: SpawnFn };
 
     // Run hermes through the user's login shell so it inherits the SAME
@@ -160,35 +169,33 @@ export class AcpClient {
       protocolVersion: 1,
       clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } },
     }, 60000)) as { agentCapabilities?: { loadSession?: boolean } };
-    const canLoad = init.agentCapabilities?.loadSession === true;
+    this.canLoad = init.agentCapabilities?.loadSession === true;
+  }
 
-    type SessionResult = {
-      sessionId?: string;
-      models?: { currentModelId?: string; availableModels?: AcpAvailableModel[] };
-    };
+  /** Whether the agent supports resuming sessions via session/load. */
+  get supportsLoad(): boolean {
+    return this.canLoad;
+  }
 
-    if (resumeSessionId && canLoad) {
-      try {
-        const loaded = (await this.request("session/load", {
-          sessionId: resumeSessionId,
-          cwd,
-          mcpServers: [],
-        }, 60000)) as SessionResult;
-        this.sessionId = resumeSessionId;
-        this.applyModels(loaded.models);
-        return true;
-      } catch (err) {
-        console.warn("[Hermes ACP] resume failed, starting fresh:", err);
-      }
-    }
+  /** Create a fresh session. */
+  async newSession(cwd: string): Promise<void> {
+    const res = (await this.request("session/new", { cwd, mcpServers: [] }, 60000)) as SessionResult;
+    this.sessionId = res.sessionId ?? null;
+    this.applyModels(res.models);
+  }
 
-    const created = (await this.request("session/new", {
-      cwd,
-      mcpServers: [],
-    }, 60000)) as SessionResult;
-    this.sessionId = created.sessionId ?? null;
-    this.applyModels(created.models);
-    return false;
+  /** Resume a past session — Hermes replays its transcript via session/update. */
+  async loadSession(cwd: string, sessionId: string): Promise<void> {
+    const res = (await this.request("session/load", { sessionId, cwd, mcpServers: [] }, 60000)) as SessionResult;
+    this.sessionId = sessionId;
+    this.applyModels(res.models);
+  }
+
+  /** List past sessions, most-recently-updated first. */
+  async listSessions(): Promise<AcpSessionSummary[]> {
+    const res = (await this.request("session/list", {}, 30000)) as { sessions?: AcpSessionSummary[] };
+    const sessions = res.sessions ?? [];
+    return [...sessions].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
   }
 
   /** Record current/available models from a session result (if present). */

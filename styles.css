@@ -1207,7 +1207,7 @@ body.terminal-tab-bar-resizing {
   user-select: none;
 }
 
-.hermes-chat-clear {
+.hermes-chat-iconbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1219,8 +1219,20 @@ body.terminal-tab-bar-resizing {
   border-radius: 5px;
   box-shadow: none;
 }
-.hermes-chat-clear:hover { color: var(--text-error); background: var(--background-modifier-hover); }
-.hermes-chat-clear svg { width: 15px; height: 15px; }
+.hermes-chat-iconbtn:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.hermes-chat-iconbtn svg { width: 15px; height: 15px; }
+.hermes-chat-iconbtn.is-dimmed { opacity: 0.35; }
+
+/* Empty-state placeholder */
+.hermes-empty {
+  margin: auto;
+  max-width: 320px;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
 
 .hermes-context-switch {
   width: 26px;
