@@ -957,15 +957,21 @@ export class TerminalTabManager {
 
       // Wire data: PTY -> xterm. Hermes busy/idle state is handled by the
       // hook status bridge, not by terminal escape sequences.
+      let dataChunkCount = 0;
       pty.onData((data: string) => {
+        dataChunkCount++;
+        // Log chunks that might contain the Hermes black background (contains "gwen" or color codes)
+        if (data.includes("gwen") || data.includes("\x1b[48") || /\x1b\[[0-9;]*m/.test(data)) {
+          console.log(`Chunk ${dataChunkCount}: ${JSON.stringify(data.substring(0, 200))}`);
+        }
+
         // Replace reverse video (ESC[7m) with standard ANSI yellow background instead
         let filteredData = data;
         const reverseVideoMatches = data.match(/\x1b\[7m/g);
         if (reverseVideoMatches) {
-          console.log(`Found ${reverseVideoMatches.length} reverse video code(s)`);
           // Replace with standard ANSI yellow background (43) and black text (30)
           filteredData = filteredData.replace(/\x1b\[7m/g, "\x1b[43m\x1b[30m");
-          filteredData = filteredData.replace(/\x1b\[27m/g, "\x1b[0m"); // Reset after reverse video
+          filteredData = filteredData.replace(/\x1b\[27m/g, "\x1b[0m");
         }
         terminal.write(filteredData);
       });
