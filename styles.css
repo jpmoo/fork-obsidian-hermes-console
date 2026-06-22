@@ -1258,27 +1258,44 @@ body.terminal-tab-bar-resizing {
   color: var(--text-muted);
 }
 
-/* Tool calls */
+/* Tool calls — deliberately subtle; they annotate the conversation rather
+   than compete with it. Compact row, no card background. */
 .hermes-tool-call {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85em;
-  color: var(--text-muted);
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  padding: 5px 10px;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.8em;
+  color: var(--text-faint);
+  padding: 1px 2px;
+  line-height: 1.4;
 }
 
-.hermes-tool-icon { opacity: 0.7; }
-.hermes-tool-title { flex: 1; color: var(--text-normal); }
+.hermes-tool-icon { color: var(--text-faint); }
+
+.hermes-tool-title {
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 0.95em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hermes-tool-status {
+  margin-left: auto;
   font-size: 0.85em;
-  text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--text-faint);
+  text-transform: lowercase;
 }
+
+/* Completed fades further; running gets the accent. */
+.hermes-tool-call[data-status="completed"] { opacity: 0.6; }
+.hermes-tool-call[data-status="running"] .hermes-tool-status,
+.hermes-tool-call[data-status="in_progress"] .hermes-tool-status {
+  color: var(--text-accent);
+}
+.hermes-tool-call[data-status="failed"] .hermes-tool-status { color: var(--text-error); }
 
 /* Permission prompt */
 .hermes-permission {
