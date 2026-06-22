@@ -221,9 +221,9 @@ body.theme-light .terminal-view-container {
 .terminal-shell-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: 54px;
-  padding: 10px 14px 9px 8px;
+  gap: 8px;
+  min-height: 20px;
+  padding: 3px 8px 2px 4px;
   border-bottom: 1px solid var(--hermes-border-soft);
   background: linear-gradient(90deg, color-mix(in srgb, var(--hermes-accent) 8%, transparent), transparent 62%);
   flex-shrink: 0;
@@ -243,7 +243,7 @@ body.theme-light .terminal-view-container {
   align-items: flex-end;
   gap: 2px;
   padding: 0;
-  min-height: 38px;
+  min-height: 22px;
   background: transparent;
   border-bottom: 1px solid var(--hermes-border-soft);
   flex-shrink: 0;
@@ -502,13 +502,13 @@ body.terminal-tab-bar-resizing {
 .terminal-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 5px 9px;
+  gap: 4px;
+  min-height: 20px;
+  padding: 2px 6px;
   border: 1px solid transparent;
-  border-radius: 9px 9px 0 0;
+  border-radius: 6px 6px 0 0;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
   background: color-mix(in srgb, var(--background-secondary) 42%, transparent);
   user-select: none;
