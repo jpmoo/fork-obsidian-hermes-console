@@ -127,7 +127,9 @@ export class HermesChatView extends ItemView {
 
     const status = container.createDiv({ cls: "hermes-chat-status" });
     this.modelEl = status.createSpan({ cls: "hermes-stat hermes-stat-model" });
-    this.modelEl.addEventListener("click", (e) => this.openModelMenu(e));
+    // Model switching is disabled: Hermes's session/set_model truncates the
+    // model name at the last colon (qwen3.6:35b -> "35b"), so any switch 404s.
+    // Re-enable openModelMenu once that's fixed upstream.
     this.ctxEl = status.createSpan({ cls: "hermes-stat hermes-stat-ctx" });
     this.tokensEl = status.createSpan({ cls: "hermes-stat hermes-stat-tokens" });
     this.timeEl = status.createSpan({ cls: "hermes-stat hermes-stat-time" });
@@ -670,11 +672,8 @@ export class HermesChatView extends ItemView {
   }
 
   private updateModel(): void {
-    const name = this.client?.model?.name ?? "";
-    this.modelEl.setText(name ? `${name} ▾` : "");
-    const hasChoices = (this.client?.availableModels.length ?? 0) > 1;
-    this.modelEl.toggleClass("hermes-stat-model--clickable", hasChoices);
-    this.modelEl.setAttr("title", hasChoices ? "Click to switch model" : "");
+    // Plain, non-interactive model label (picker disabled — see onOpen).
+    this.modelEl.setText(this.client?.model?.name ?? "");
   }
 
   private openModelMenu(evt: MouseEvent): void {
