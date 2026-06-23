@@ -1284,6 +1284,14 @@ body.terminal-tab-bar-resizing {
   gap: 14px;
 }
 
+/* Allow selecting/copying transcript text (Obsidian views default to none). */
+.hermes-chat-messages,
+.hermes-chat-messages * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+.hermes-msg-body { cursor: text; }
+
 .hermes-msg {
   display: flex;
   flex-direction: column;
