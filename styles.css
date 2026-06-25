@@ -1405,11 +1405,18 @@ body.terminal-tab-bar-resizing {
   border-radius: 10px;
   padding: 10px 12px;
   background: var(--background-secondary);
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .hermes-permission-title {
   font-weight: 600;
   margin-bottom: 8px;
+  /* Tool titles can be long unbroken strings (commands/paths) — wrap them. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .hermes-permission-buttons {
