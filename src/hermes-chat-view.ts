@@ -111,7 +111,9 @@ export class HermesChatView extends ItemView {
 
     this.messagesEl = container.createDiv({ cls: "hermes-chat-messages" });
     this.emptyEl = this.messagesEl.createDiv({ cls: "hermes-empty" });
-    this.emptyEl.setText("Start typing to Hermes, or use the dropdown above to continue an existing conversation.");
+    // Contextual text is set during connect (deferNewSession / resumeSession);
+    // this neutral message covers the brief startup window.
+    this.emptyEl.setText("Connecting to Hermes…");
 
     // Keep the empty-state placeholder and the dimmed "new" button in sync
     // with whether the transcript has any content.
@@ -202,6 +204,7 @@ export class HermesChatView extends ItemView {
       this.inputEl.focus();
     } catch (err) {
       this.setStatus(`Failed to start Hermes: ${err instanceof Error ? err.message : String(err)}`);
+      this.setEmptyMessage("Couldn't start Hermes. Check the Hermes command in settings, then reopen.");
     }
   }
 
@@ -232,11 +235,15 @@ export class HermesChatView extends ItemView {
   private deferNewSession(): void {
     this.client?.clearSession();
     this.updateModel();
+    this.setEmptyMessage(
+      "Start typing to Hermes, or use the dropdown above to continue an existing conversation.",
+    );
   }
 
   private async resumeSession(cwd: string, sessionId: string): Promise<void> {
     if (!this.client) return;
     this.setStatus("Loading conversation…");
+    this.setEmptyMessage("Loading conversation…");
     // Replay arrives via session/update during loadSession and renders here.
     await this.client.loadSession(cwd, sessionId);
     this.finalizeSegments();
@@ -606,6 +613,10 @@ export class HermesChatView extends ItemView {
     );
     this.emptyEl.toggle(!hasContent);
     this.newBtn?.toggleClass("is-dimmed", !hasContent);
+  }
+
+  private setEmptyMessage(text: string): void {
+    this.emptyEl.setText(text);
   }
 
   private timeAgo(iso: string): string {
