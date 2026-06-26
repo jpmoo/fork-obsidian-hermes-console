@@ -1399,30 +1399,44 @@ body.terminal-tab-bar-resizing {
 }
 .hermes-tool-call[data-status="failed"] .hermes-tool-status { color: var(--text-error); }
 
-/* Permission prompt */
+/* Permission prompt — pinned above the input so buttons are always reachable */
+.hermes-permission-host {
+  flex-shrink: 0;
+}
+.hermes-permission-host:empty {
+  display: none;
+}
+
 .hermes-permission {
-  border: 1px solid var(--background-modifier-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* Never taller than ~40% of the panel; the title scrolls if needed. */
+  max-height: 40vh;
+  margin: 0 12px;
+  border: 1px solid var(--hermes-border, var(--background-modifier-border));
   border-radius: 10px;
   padding: 10px 12px;
   background: var(--background-secondary);
-  max-width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
 }
 
 .hermes-permission-title {
   font-weight: 600;
   margin-bottom: 8px;
+  min-height: 0;
+  overflow-y: auto;
   /* Tool titles can be long unbroken strings (commands/paths) — wrap them. */
   overflow-wrap: anywhere;
   word-break: break-word;
-  white-space: normal;
+  white-space: pre-wrap;
 }
 
 .hermes-permission-buttons {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 /* Input row */

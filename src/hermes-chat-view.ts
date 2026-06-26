@@ -22,6 +22,7 @@ export class HermesChatView extends ItemView {
 
   private messagesEl!: HTMLElement;
   private emptyEl!: HTMLElement;
+  private permissionHostEl!: HTMLElement;
   private newBtn!: HTMLButtonElement;
   private inputEl!: HTMLTextAreaElement;
   private sendButton!: HTMLButtonElement;
@@ -117,6 +118,10 @@ export class HermesChatView extends ItemView {
     this.messageObserver = new MutationObserver(() => this.updateEmptyState());
     this.messageObserver.observe(this.messagesEl, { childList: true });
     this.updateEmptyState();
+
+    // Permission prompts are pinned here, just above the input, so their
+    // buttons are always visible no matter how tall the request is.
+    this.permissionHostEl = container.createDiv({ cls: "hermes-permission-host" });
 
     const inputRow = container.createDiv({ cls: "hermes-chat-input-row" });
     this.inputEl = inputRow.createEl("textarea", {
@@ -351,21 +356,24 @@ export class HermesChatView extends ItemView {
 
   private async handlePermission(req: AcpPermissionRequest): Promise<string | null> {
     return new Promise((resolve) => {
-      const wrap = this.messagesEl.createDiv({ cls: "hermes-permission" });
+      this.permissionHostEl.empty();
+      const wrap = this.permissionHostEl.createDiv({ cls: "hermes-permission" });
+      // Title can be long (a diff/command); it scrolls inside the box while
+      // the buttons stay pinned and visible.
       wrap.createDiv({
         cls: "hermes-permission-title",
         text: `Allow: ${req.toolCall?.title ?? "tool call"}?`,
       });
       const buttons = wrap.createDiv({ cls: "hermes-permission-buttons" });
+      const done = (optionId: string | null) => {
+        this.permissionHostEl.empty();
+        resolve(optionId);
+      };
       for (const opt of req.options) {
         const btn = buttons.createEl("button", { cls: "hermes-permission-btn", text: opt.name });
         if (opt.kind?.startsWith("allow")) btn.addClass("mod-cta");
-        btn.addEventListener("click", () => {
-          wrap.remove();
-          resolve(opt.optionId);
-        });
+        btn.addEventListener("click", () => done(opt.optionId));
       }
-      this.scrollToBottom();
     });
   }
 
